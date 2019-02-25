@@ -24,7 +24,6 @@
 #include "app_types.h"
 
 ux_state_t ux;
-enum UI_STATE view_uiState;
 
 char view_title[16];
 char view_buffer_key[MAX_CHARS_PER_KEY_LINE];
@@ -319,12 +318,9 @@ void handler_reject_tx(unsigned int unused) {
 
 void view_init(void) {
     UX_INIT();
-    view_uiState = UI_IDLE;
 }
 
 void view_main_menu(void) {
-    view_uiState = UI_IDLE;
-
     if (N_appdata.mode != APPMODE_READY) {
         UX_MENU_DISPLAY(0, menu_main_not_ready, menu_main_prepro);
     } else {
@@ -333,7 +329,6 @@ void view_main_menu(void) {
 }
 
 void view_sign_menu(void) {
-    view_uiState = UI_SIGN;
     UX_MENU_DISPLAY(0, menu_sign, NULL);
 }
 
