@@ -725,7 +725,7 @@ void app_main() {
 
                         parse_unsigned_message(&tx, rx);
 
-                        view_sign_menu();
+                        handler_view_tx(0);
                         flags |= IO_ASYNCH_REPLY;
                         break;
                     }
