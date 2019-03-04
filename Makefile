@@ -125,4 +125,4 @@ dep/%.d: %.c Makefile.genericwallet
 
 
 listvariants:
-	@echo VARIANTS COIN cosmos
+	@echo VARIANTS COIN qrl
