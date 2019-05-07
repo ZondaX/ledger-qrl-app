@@ -29,9 +29,6 @@
 #include "storage.h"
 
 #include "test_data/test_data.h"
-
-#define CONDITIONAL_REDISPLAY  { if (UX_ALLOWED) UX_REDISPLAY() };
-
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 app_ctx_t ctx;
 
@@ -56,7 +53,7 @@ unsigned char io_event(unsigned char channel) {
             break;
 
         case SEPROXYHAL_TAG_TICKER_EVENT: {
-            UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, CONDITIONAL_REDISPLAY);
+            UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {if (UX_ALLOWED) UX_REDISPLAY()});
         }
             break;
 
