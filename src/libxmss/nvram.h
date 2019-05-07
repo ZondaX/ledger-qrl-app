@@ -15,7 +15,7 @@ typedef struct {
   uint8_t xmss_nodes[XMSS_NODES_BUFSIZE];
 } N_DATA_t;
 
-extern NVCONST N_DATA_t N_DATA_impl;
+extern NV_CONST N_DATA_t N_DATA_impl;
 
 #ifdef LEDGER_SPECIFIC
 #define N_DATA (*(N_DATA_t *)PIC(&N_DATA_impl))

@@ -4,13 +4,13 @@
 
 #define BUF_MAX_IDX 34      // split point between ram and nvram
 
-__INLINE uint8_t *get_p(NVCONST uint8_t *tmp_wotspk, uint8_t *mem_wotspk, uint32_t idx) {
+__Z_INLINE uint8_t *get_p(NV_CONST uint8_t *tmp_wotspk, uint8_t *mem_wotspk, uint32_t idx) {
     uint8_t *base_p = idx < BUF_MAX_IDX ? (uint8_t *) mem_wotspk : (uint8_t *) tmp_wotspk;
     return base_p + WOTS_N * idx;
 }
 
-void xmss_ltree_gen(NVCONST uint8_t *leaf,
-                    NVCONST uint8_t *tmp_wotspk,
+void xmss_ltree_gen(NV_CONST uint8_t *leaf,
+                    NV_CONST uint8_t *tmp_wotspk,
                     const uint8_t *pub_seed,
                     uint16_t index) {
     uint8_t mem_wotspk[BUF_MAX_IDX * WOTS_N];
@@ -51,7 +51,7 @@ void xmss_ltree_gen(NVCONST uint8_t *leaf,
         tree_height++;
     }
 
-    nvcpy(leaf, mem_wotspk, WOTS_N);
+    MEMCPY_NV(leaf, mem_wotspk, WOTS_N);
 }
 
 void xmss_treehash(uint8_t *root_out,
@@ -100,13 +100,13 @@ void xmss_treehash(uint8_t *root_out,
     memcpy(root_out, stack, WOTS_N);
 }
 
-void xmss_randombits(NVCONST uint8_t *random_bits, const uint8_t sk_seed[48]) {
+void xmss_randombits(NV_CONST uint8_t *random_bits, const uint8_t sk_seed[48]) {
 #ifdef LEDGER_SPECIFIC
     uint8_t buffer[3*WOTS_N];
         cx_sha3_t hash_sha3;
         cx_sha3_xof_init(&hash_sha3,256,3*WOTS_N);
         cx_hash(&hash_sha3.header, CX_LAST, sk_seed, 48, buffer, 3*WOTS_N);
-        nvcpy(random_bits, buffer, 3*WOTS_N);
+        MEMCPY_NV(random_bits, buffer, 3*WOTS_N);
 #else
     shake256(random_bits, 3 * WOTS_N, sk_seed, 48);
 #endif
@@ -120,14 +120,14 @@ void xmss_get_seed_i(uint8_t *seed, const xmss_sk_t *sk, uint16_t idx) {
     shash96(seed, &prf_in);
 }
 
-void xmss_gen_keys_1_get_seeds(NVCONST xmss_sk_t *sk,
+void xmss_gen_keys_1_get_seeds(NV_CONST xmss_sk_t *sk,
                                const uint8_t *sk_seed) {
-    nvset(&sk->index, 0);
+    SET_NV(&sk->index, uint32_t, 0);
     xmss_randombits(sk->seeds.raw, sk_seed);
 }
 
-void xmss_gen_keys_2_get_nodes(NVCONST uint8_t *wots_buffer,
-                               NVCONST uint8_t *xmss_node,
+void xmss_gen_keys_2_get_nodes(NV_CONST uint8_t *wots_buffer,
+                               NV_CONST uint8_t *xmss_node,
                                const xmss_sk_t *sk,
                                uint16_t idx) {
     uint8_t seed[WOTS_N];
@@ -137,11 +137,11 @@ void xmss_gen_keys_2_get_nodes(NVCONST uint8_t *wots_buffer,
 }
 
 void xmss_gen_keys_3_get_root(const uint8_t *xmss_nodes,
-                              NVCONST xmss_sk_t *sk) {
+                              NV_CONST xmss_sk_t *sk) {
     uint8_t root[WOTS_N];
     uint8_t authpath[(XMSS_H + 1) * WOTS_N];
     xmss_treehash(root, authpath, xmss_nodes, sk->pub_seed, 0);
-    nvcpy(sk->root, root, WOTS_N);
+    MEMCPY_NV(sk->root, root, WOTS_N);
 }
 
 void xmss_gen_keys(xmss_sk_t *sk,

@@ -208,7 +208,7 @@ void test_set_state(volatile uint32_t *tx, uint32_t rx)
     UNUSED(p2);
     UNUSED(data);
 
-    nvcpy((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
+    MEMCPY_NV((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
 
     view_update_state(500);
 }
@@ -287,7 +287,7 @@ void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
     snprintf(view_buffer_value, sizeof(view_buffer_value), "W[%03d]: %03d", size, index);
     debug_printf(view_buffer_value);
 
-    nvcpy((void*)p, data, size);
+    MEMCPY_NV((void*)p, data, size);
     view_update_state(2000);
 }
 
@@ -660,7 +660,7 @@ void app_setidx() {
     }
 
     const uint16_t tmp = ctx.new_idx;
-    nvcpy((void *) &N_appdata.xmss_index, (void *) &tmp, 2);
+    MEMCPY_NV((void *) &N_appdata.xmss_index, (void *) &tmp, 2);
     view_update_state(500);
 }
 
