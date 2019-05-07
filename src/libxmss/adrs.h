@@ -49,6 +49,6 @@ union ADRS_t {
 #pragma pack(pop)
 
 __Z_INLINE void ADRS_init(union ADRS_t *adrs, uint32_t type) {
-    memset(adrs->raw, 32, 0);
+    memset(adrs->raw, 0, 32);
     adrs->type = HtoNL(type);
 }
