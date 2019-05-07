@@ -17,6 +17,10 @@
 #include "os.h"
 #include "xmss_types.h"
 
+#define APPMODE_NOT_INITIALIZED    0x00
+#define APPMODE_KEYGEN_RUNNING     0x01
+#define APPMODE_READY              0x02
+
 #pragma pack(push, 1)
 typedef union {
   struct {
