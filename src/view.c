@@ -23,13 +23,17 @@
 #include "view_templates.h"
 #include "app_types.h"
 
+#include "actions.h"
+
 view_t viewdata;
 
 #define ARRTOHEX(X, Y) array_to_hexstr(X, Y, sizeof(Y))
 #define AMOUNT_TO_STR(OUTPUT, AMOUNT, DECIMALS) fpuint64_to_str(OUTPUT, uint64_from_BEarray(AMOUNT), DECIMALS)
 
 void h_tree_init(unsigned int _) {
-//    actions_tree_init();
+    actions_tree_init();
+    view_update_state();
+    view_idle_menu();
 }
 
 #if defined(TARGET_NANOX)
@@ -41,7 +45,7 @@ bolos_ux_params_t G_ux_params;
 UX_STEP_NOCB_INIT(ux_idle_flow_1_step, pbb, { view_update_state(); }, { &C_icon_app, viewdata.key, viewdata.value, });
 
 UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
-UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show PK",});
+UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show Addr",});
 
 UX_FLOW_DEF_VALID(ux_idle_flow_3_step, pb, h_tree_switch(0), { &C_icon_refresh, "Switch Tree",});
 UX_FLOW_DEF_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
@@ -92,8 +96,8 @@ ux_state_t ux;
 
 const ux_menu_entry_t menu_idle[] = {
         {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 32, 11},
-        {NULL, NULL, UIID_TREE_PK, NULL, "Show PK", NULL, 0, 0},
-        {NULL, NULL, 0, NULL, "QRL v"APPVERSION, NULL, 0, 0},
+        {NULL, NULL, UIID_TREE_PK, NULL, "Show Addr", NULL, 0, 0},
+        {NULL, NULL, 0, NULL, "v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
         UX_MENU_END
 };
@@ -257,18 +261,43 @@ void view_init(void) {
 }
 
 void view_idle_menu(void) {
+
+#if defined(TARGET_NANOS)
     if (N_appdata.mode != APPMODE_READY) {
         UX_MENU_DISPLAY(0, menu_idle_init, NULL);
     } else {
         UX_MENU_DISPLAY(0, menu_idle, NULL);
     }
+#elif defined(TARGET_NANOX)
+    if(G_ux.stack_count == 0) {
+        ux_stack_push();
+    }
+    if (APP_CURRENT_TREE_MODE != APPMODE_READY) {
+        ux_flow_init(0, ux_idle_init_flow, NULL);
+    } else {
+        ux_flow_init(0, ux_idle_flow, NULL);
+    }
+#endif
 }
 
 void view_sign_menu(void) {
+#if defined(TARGET_NANOS)
     UX_MENU_DISPLAY(0, menu_sign, NULL);
+#elif defined(TARGET_NANOX)
+    if(G_ux.stack_count == 0) {
+        ux_stack_push();
+    }
+    ux_flow_init(0, ux_tx_flow, NULL);
+#endif
 }
 
 void view_update_state() {
+    #ifdef TESTING_ENABLED
+        print_key("QRL");
+    #else
+        print_key("QRL (TEST)")
+    #endif
+
     switch (N_appdata.mode) {
         case APPMODE_NOT_INITIALIZED: {
             print_status("not ready ");

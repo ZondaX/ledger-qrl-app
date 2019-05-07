@@ -29,8 +29,6 @@
 #include "storage.h"
 #include "app_crypto.h"
 
-#include "test_data/test_data.h"
-
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
 void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx);
@@ -139,7 +137,7 @@ void app_init() {
     USB_power(0);
     USB_power(1);
 
-    view_update_state(100);
+    view_update_state();
     view_idle_menu();
 
     memset(&ctx, 0, sizeof(app_ctx_t));
@@ -162,7 +160,7 @@ void test_set_state(volatile uint32_t *tx, uint32_t rx)
 
     MEMCPY_NV((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
@@ -191,7 +189,7 @@ void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
     MEMMOVE(G_io_apdu_buffer, (const void *)p, 32);
     *tx+=32;
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_keygen(volatile uint32_t* tx, uint32_t rx)
@@ -207,14 +205,14 @@ void test_keygen(volatile uint32_t* tx, uint32_t rx)
     UNUSED(p2);
     UNUSED(data);
 
-    app_initialize_xmss_step();
+    actions_tree_init_step();
 
     G_io_apdu_buffer[0] = N_appdata.mode;
     G_io_apdu_buffer[1] = N_appdata.xmss_index >> 8;
     G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
     *tx += 3;
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
@@ -239,7 +237,7 @@ void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
     print_status("W[%03d]: %03d", size, index);
 
     MEMCPY_NV((void*)p, (void *)data, size);
-    view_update_state(2000);
+    view_update_state();
 }
 
 void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
@@ -264,7 +262,7 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
     tmp.xmss_index = 0;
     nvm_write((void*) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
 
-    view_update_state(50);
+    view_update_state();
 }
 
 void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
@@ -289,7 +287,7 @@ void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
     print_status("Read %d", index);
 
     *tx+=32;
-    view_update_state(2000);
+    view_update_state();
 }
 
 void test_get_seed(volatile uint32_t *tx, uint32_t rx)
@@ -314,7 +312,7 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
 
     print_status("GET_SEED");
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_digest(volatile uint32_t *tx, uint32_t rx)
@@ -347,7 +345,7 @@ void test_digest(volatile uint32_t *tx, uint32_t rx)
     os_memmove(G_io_apdu_buffer, digest.raw, 64);
 
     *tx+=64;
-    view_update_state(2000);
+    view_update_state();
 }
 #endif
 
@@ -377,7 +375,7 @@ void app_get_version(volatile uint32_t *tx, uint32_t rx) {
     G_io_apdu_buffer[3] = LEDGER_PATCH_VERSION;
     *tx += 4;
 
-    view_update_state(2000);
+    view_update_state();
 }
 
 void app_get_state(volatile uint32_t *tx, uint32_t rx) {
@@ -397,65 +395,7 @@ void app_get_state(volatile uint32_t *tx, uint32_t rx) {
     G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
     *tx += 3;
 
-    view_update_state(500);
-}
-
-char app_initialize_xmss_step() {
-    if (N_appdata.mode != APPMODE_NOT_INITIALIZED && N_appdata.mode != APPMODE_KEYGEN_RUNNING) {
-        return false;
-    }
-    appstorage_t tmp;
-
-    // Generate all leaves
-    if (N_appdata.mode == APPMODE_NOT_INITIALIZED) {
-        uint8_t
-                seed[48];
-
-        get_seed(seed);
-
-        xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
-
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = 0;
-
-        nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
-    }
-
-    if (N_appdata.xmss_index < 256) {
-        print_status("keygen: %03d/256", N_appdata.xmss_index + 1);
-
-#ifdef TESTING_ENABLED
-        for (int idx  = 0; idx < 256; idx +=4){
-            nvm_write( (void *) (N_DATA.xmss_nodes + 32 * idx),
-                       (void *) test_xmss_leaves[idx],
-                       128);
-        }
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = 256;
-#else
-        const uint8_t *p = N_DATA.xmss_nodes + 32 * N_appdata.xmss_index;
-        xmss_gen_keys_2_get_nodes((uint8_t * ) & N_DATA.wots_buffer, (void *) p, &N_DATA.sk, N_appdata.xmss_index);
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = N_appdata.xmss_index + 1;
-#endif
-
-    } else {
-        print_status("keygen: root");
-
-        xmss_pk_t pk;
-        memset(pk.raw, 0, 64);
-
-        xmss_gen_keys_3_get_root(N_DATA.xmss_nodes, &N_DATA.sk);
-        xmss_pk(&pk, &N_DATA.sk);
-
-        nvm_write(N_appdata.pk.raw, pk.raw, 64);
-
-        tmp.mode = APPMODE_READY;
-        tmp.xmss_index = 0;
-    }
-
-    nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
-    return N_appdata.mode != APPMODE_READY;
+    view_update_state();
 }
 
 void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
@@ -482,7 +422,7 @@ void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
     *tx += 67;
 
     THROW(APDU_CODE_OK);
-    view_update_state(500);
+    view_update_state();
 }
 
 /// This allows extracting the signature by chunks
@@ -543,7 +483,7 @@ void app_sign_next(volatile uint32_t *tx, uint32_t rx) {
         *tx = ctx.xmss_sig_ctx.written;
     }
 
-    view_update_state(1000);
+    view_update_state();
 }
 
 void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
@@ -589,7 +529,7 @@ void app_setidx() {
 
     const uint16_t tmp = ctx.new_idx;
     MEMCPY_NV((void *) &N_appdata.xmss_index, (void *) &tmp, 2);
-    view_update_state(500);
+    view_update_state();
 }
 
 #pragma clang diagnostic push
@@ -664,7 +604,7 @@ void app_main() {
                         }
 
                         app_sign_next(&tx, rx);
-                        view_update_state(1000);
+                        view_update_state();
                         THROW(APDU_CODE_OK);
                         break;
                     }
