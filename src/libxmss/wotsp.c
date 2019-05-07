@@ -2,7 +2,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #include "wotsp.h"
 
-void wotsp_expand_seed(NV_CONST uint8_t *pk, const uint8_t *seed) {
+void wotsp_expand_seed(NV_VOL NV_CONST uint8_t *pk, const uint8_t *seed) {
     shash_input_t prf_input;
     PRF_init(&prf_input, SHASH_TYPE_PRF);
 
@@ -23,14 +23,14 @@ __Z_INLINE void wotsp_gen_chain_mem(uint8_t *in_out, shash_input_t *prf_input, u
     }
 }
 
-void wotsp_gen_chain(NV_CONST uint8_t *in_out, shash_input_t *prf_input, uint8_t start, int8_t count) {
+void wotsp_gen_chain(NV_VOL NV_CONST uint8_t *in_out, shash_input_t *prf_input, uint8_t start, int8_t count) {
     uint8_t tmp[32];
     memcpy(tmp, in_out, 32);
     wotsp_gen_chain_mem(tmp, prf_input, start, count);
     MEMCPY_NV(in_out, tmp, 32);
 }
 
-void wotsp_gen_pk(NV_CONST uint8_t *pk, uint8_t *sk, const uint8_t *pub_seed, uint16_t index) {
+void wotsp_gen_pk(NV_VOL NV_CONST uint8_t *pk, uint8_t *sk, const uint8_t *pub_seed, uint16_t index) {
     wotsp_expand_seed(pk, sk);
 
     shash_input_t prf_input;

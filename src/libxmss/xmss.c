@@ -100,7 +100,8 @@ void xmss_treehash(uint8_t *root_out,
     memcpy(root_out, stack, WOTS_N);
 }
 
-void xmss_randombits(NV_CONST uint8_t *random_bits, const uint8_t sk_seed[48]) {
+void xmss_randombits(NV_CONST uint8_t *random_bits,
+                     NV_VOL const uint8_t sk_seed[48]) {
 #ifdef LEDGER_SPECIFIC
     uint8_t buffer[3*WOTS_N];
         cx_sha3_t hash_sha3;
@@ -120,15 +121,15 @@ void xmss_get_seed_i(uint8_t *seed, const xmss_sk_t *sk, uint16_t idx) {
     shash96(seed, &prf_in);
 }
 
-void xmss_gen_keys_1_get_seeds(NV_CONST xmss_sk_t *sk,
+void xmss_gen_keys_1_get_seeds(NV_VOL NV_CONST xmss_sk_t *sk,
                                const uint8_t *sk_seed) {
-    SET_NV(&sk->index, uint32_t, 0);
-    xmss_randombits(sk->seeds.raw, sk_seed);
+    SET_NV(&(sk->index), uint32_t, 0);
+    // xmss_randombits(sk->seeds.raw, sk_seed);
 }
 
-void xmss_gen_keys_2_get_nodes(NV_CONST uint8_t *wots_buffer,
-                               NV_CONST uint8_t *xmss_node,
-                               const xmss_sk_t *sk,
+void xmss_gen_keys_2_get_nodes(NV_VOL NV_CONST uint8_t *wots_buffer,
+                               NV_VOL NV_CONST uint8_t *xmss_node,
+                               NV_VOL NV_CONST xmss_sk_t *sk,
                                uint16_t idx) {
     uint8_t seed[WOTS_N];
     xmss_get_seed_i(seed, sk, idx);
@@ -136,8 +137,8 @@ void xmss_gen_keys_2_get_nodes(NV_CONST uint8_t *wots_buffer,
     xmss_ltree_gen(xmss_node, wots_buffer, sk->pub_seed, idx);
 }
 
-void xmss_gen_keys_3_get_root(const uint8_t *xmss_nodes,
-                              NV_CONST xmss_sk_t *sk) {
+void xmss_gen_keys_3_get_root(NV_VOL const uint8_t *xmss_nodes,
+                              NV_VOL NV_CONST xmss_sk_t *sk) {
     uint8_t root[WOTS_N];
     uint8_t authpath[(XMSS_H + 1) * WOTS_N];
     xmss_treehash(root, authpath, xmss_nodes, sk->pub_seed, 0);
@@ -185,7 +186,7 @@ void xmss_digest(xmss_digest_t *digest,
 
 void xmss_sign(xmss_signature_t *sig,
                const uint8_t msg[32],
-               const xmss_sk_t *sk,
+               NV_VOL const xmss_sk_t *sk,
                const uint8_t xmss_nodes[XMSS_NODES_BUFSIZE],
                const uint16_t index) {
     // Get message digest
@@ -218,7 +219,7 @@ void xmss_sign(xmss_signature_t *sig,
 
 void xmss_sign_incremental_init(xmss_sig_ctx_t *ctx,
                                 const uint8_t msg[32],
-                                const xmss_sk_t *sk,
+                                NV_VOL const xmss_sk_t *sk,
                                 uint8_t xmss_nodes[XMSS_NODES_BUFSIZE],
                                 const uint16_t index) {
     ctx->sig_chunk_idx = 0;
@@ -238,7 +239,7 @@ void xmss_sign_incremental_init(xmss_sig_ctx_t *ctx,
 
 bool xmss_sign_incremental(xmss_sig_ctx_t *ctx,
                            uint8_t *out,
-                           const xmss_sk_t *sk,
+                           NV_VOL const xmss_sk_t *sk,
                            const uint16_t index) {
     ctx->written = 0;
 
@@ -279,7 +280,7 @@ bool xmss_sign_incremental(xmss_sig_ctx_t *ctx,
 
 bool xmss_sign_incremental_last(xmss_sig_ctx_t *ctx,
                                 uint8_t *out,
-                                const xmss_sk_t *sk,
+                                NV_VOL const xmss_sk_t *sk,
                                 const uint16_t index) {
     ctx->written = 0;
 

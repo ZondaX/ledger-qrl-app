@@ -21,11 +21,11 @@ typedef struct {
 
 __Z_INLINE void BE_inc(uint32_t *val) { *val = NtoHL(HtoNL(*val) + 1); }
 
-void wotsp_expand_seed(NV_CONST uint8_t *pk, const uint8_t *seed);
+void wotsp_expand_seed(NV_VOL NV_CONST uint8_t *pk, const uint8_t *seed);
 
-void wotsp_gen_chain(NV_CONST uint8_t *in_out, shash_input_t *prf_input, uint8_t start, int8_t count);
+void wotsp_gen_chain(NV_VOL NV_CONST uint8_t *in_out, shash_input_t *prf_input, uint8_t start, int8_t count);
 
-void wotsp_gen_pk(NV_CONST uint8_t *pk, uint8_t *sk, const uint8_t *pub_seed, uint16_t index);
+void wotsp_gen_pk(NV_VOL NV_CONST uint8_t *pk, uint8_t *sk, const uint8_t *pub_seed, uint16_t index);
 
 void wotsp_sign_init_ctx(wots_sign_ctx_t *ctx, const uint8_t *pub_seed, const uint8_t *sk, uint16_t index);
 
