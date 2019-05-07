@@ -42,7 +42,9 @@ void h_tree_init(unsigned int _) {
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 
-UX_STEP_NOCB_INIT(ux_idle_flow_1_step, pbb, { view_update_state(); }, { &C_icon_app, viewdata.key, viewdata.value, });
+//UX_STEP_NOCB_INIT(ux_idle_flow_1_step, pbb, { view_update_state(); }, { &C_icon_app, viewdata.key, viewdata.value, });
+//UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
+UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, "KEY", "VALUE", });
 
 UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
 UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show Addr",});

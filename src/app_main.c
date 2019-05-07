@@ -533,7 +533,7 @@ void app_init() {
 
 
     // Clear context
-    MEMSET(&ctx, 0, sizeof(app_ctx_t));
+    //MEMSET(&ctx, 0, sizeof(app_ctx_t));
 
     // Initialize UI
     view_update_state();
