@@ -1,6 +1,6 @@
 /*******************************************************************************
 *   (c) 2016 Ledger
-*   (c) 2018 ZondaX GmbH
+*   (c) 2018, 2019 ZondaX GmbH
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -23,50 +23,86 @@
 #include "view_templates.h"
 #include "app_types.h"
 
-ux_state_t ux;
+view_t viewdata;
 
-char view_title[16];
-char view_buffer_key[MAX_CHARS_PER_KEY_LINE];
-char view_buffer_value[MAX_CHARS_PER_VALUE_LINE];
-int8_t view_idx;
-
-#define COND_SCROLL_L2 0xF0
 #define ARRTOHEX(X, Y) array_to_hexstr(X, Y, sizeof(Y))
 #define AMOUNT_TO_STR(OUTPUT, AMOUNT, DECIMALS) fpuint64_to_str(OUTPUT, uint64_from_BEarray(AMOUNT), DECIMALS)
 
-////////////////////////////////////////////////
-//------ View elements
+void h_tree_init(unsigned int _) {
+//    actions_tree_init();
+}
 
-const ux_menu_entry_t menu_main[];
-const ux_menu_entry_t menu_about[];
-const ux_menu_entry_t menu_sign[];
+#if defined(TARGET_NANOX)
+
+#include "ux.h"
+ux_state_t G_ux;
+bolos_ux_params_t G_ux_params;
+
+UX_STEP_NOCB_INIT(ux_idle_flow_1_step, pbb, { view_update_state(); }, { &C_icon_app, viewdata.key, viewdata.value, });
+
+UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
+UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show PK",});
+
+UX_FLOW_DEF_VALID(ux_idle_flow_3_step, pb, h_tree_switch(0), { &C_icon_refresh, "Switch Tree",});
+UX_FLOW_DEF_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
+UX_FLOW_DEF_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
 
-const ux_menu_entry_t menu_main[] = {
-#if TESTING_ENABLED
-        {NULL, NULL, 0, &C_icon_app, "QRL TEST", view_buffer_value, 32, 11},
+const ux_flow_step_t *const ux_idle_flow [] = {
+  &ux_idle_flow_1_step,
+  &ux_idle_flow_2pk_step,
+  &ux_idle_flow_3_step,
+  &ux_idle_flow_4_step,
+  &ux_idle_flow_5_step,
+  FLOW_END_STEP,
+};
+
+const ux_flow_step_t *const ux_idle_init_flow [] = {
+  &ux_idle_flow_1_step,
+  &ux_idle_flow_2init_step,
+  &ux_idle_flow_3_step,
+  &ux_idle_flow_4_step,
+  &ux_idle_flow_5_step,
+  FLOW_END_STEP,
+};
+
+UX_FLOW_DEF_VALID(ux_tx_flow_1_step, pbb, handler_view_tx(0), { &C_icon_eye, "Review", "Transaction" });
+UX_FLOW_DEF_VALID(ux_tx_flow_2_step, pbb, handler_sign_tx(0), { &C_icon_validate_14, "Sign", "Transaction" });
+UX_FLOW_DEF_VALID(ux_tx_flow_3_step, pbb, handler_reject_tx(0), { &C_icon_crossmark, "Reject", "Transaction" });
+const ux_flow_step_t *const ux_tx_flow [] = {
+  &ux_tx_flow_1_step,
+  &ux_tx_flow_2_step,
+  &ux_tx_flow_3_step,
+  FLOW_END_STEP,
+};
+
+// TODO: ViewTX
+// TODO: Set index
+// TODO: ViewAddr
 #else
-        {NULL, NULL, 0, &C_icon_app, "QRL", view_buffer_value, 32, 11},
-#endif
-        {menu_about, NULL, 0, NULL, "About", NULL, 0, 0},
+
+#define COND_SCROLL_L2 0xF0
+
+#define UIID_STATUS        UIID_LABEL+1
+#define UIID_TREE_INIT     UIID_LABEL+3
+#define UIID_TREE_PK       UIID_LABEL+4
+#define UIID_TREE_SWITCH   UIID_LABEL+5
+
+ux_state_t ux;
+
+const ux_menu_entry_t menu_idle[] = {
+        {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 32, 11},
+        {NULL, NULL, UIID_TREE_PK, NULL, "Show PK", NULL, 0, 0},
+        {NULL, NULL, 0, NULL, "QRL v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
         UX_MENU_END
 };
 
-const ux_menu_entry_t menu_main_not_ready[] = {
-#if TESTING_ENABLED
-        {NULL, NULL, 0, &C_icon_app, "QRL TEST", view_buffer_value, 32, 11},
-#else
-        {NULL, NULL, 0, &C_icon_app, "QRL", view_buffer_value, 32, 11},
-#endif
-        {NULL, handler_init_device, 0, NULL, "Init Device", NULL, 0, 0},
-        {menu_about, NULL, 0, NULL, "About", NULL, 0, 0},
+const ux_menu_entry_t menu_idle_init[] = {
+        {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 32, 11},
+        {NULL, h_tree_init, UIID_TREE_INIT, NULL, "Init Tree", NULL, 0, 0},
+        {NULL, NULL, 0, NULL, "QRL v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
-        UX_MENU_END
-};
-
-const ux_menu_entry_t menu_about[] = {
-        {NULL, handler_main_menu_select, 0, &C_icon_back, "Version", APPVERSION, 0, 0},
         UX_MENU_END
 };
 
@@ -78,52 +114,28 @@ const ux_menu_entry_t menu_sign[] = {
 };
 
 static const bagl_element_t view_txinfo[] = {
-        UI_FillRectangle(0, 0, 0, 128, 32, 0x000000, 0xFFFFFF),
-        UI_Icon(0, 0, 0, 7, 7, BAGL_GLYPH_ICON_LEFT),
-        UI_Icon(0, 128 - 7, 0, 7, 7, BAGL_GLYPH_ICON_RIGHT),
-        UI_LabelLine(1, 0, 8, 128, 11, 0xFFFFFF, 0x000000, (const char *) view_title),
-        UI_LabelLine(1, 0, 19, 128, 11, 0xFFFFFF, 0x000000, (const char *) view_buffer_key),
-        UI_LabelLineScrolling(2, 6, 30, 112, 11, 0xFFFFFF, 0x000000, (const char *) view_buffer_value),
+        UI_BACKGROUND_LEFT_RIGHT_ICONS,
+        UI_LabelLine(UIID_LABEL + 0, 0, 8, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.title),
+        UI_LabelLine(UIID_LABEL + 0, 0, 19, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.key),
+        UI_LabelLineScrolling(UIID_LABELSCROLL, 6, 30, 112, UI_11PX, UI_WHITE, UI_BLACK, viewdata.value),
 };
 
 static const bagl_element_t view_setidx[] = {
-        UI_FillRectangle(0, 0, 0, 128, 32, 0x000000, 0xFFFFFF),
+        UI_FillRectangle(0, 0, 0, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT, 0x000000, 0xFFFFFF),
         UI_Icon(0, 0, 0, 7, 7, BAGL_GLYPH_ICON_CROSS),
         UI_Icon(0, 128 - 7, 0, 7, 7, BAGL_GLYPH_ICON_CHECK),
-        UI_LabelLine(1, 0, 8, 128, 11, 0xFFFFFF, 0x000000, (const char *) view_title),
-        UI_LabelLine(1, 0, 19, 128, 11, 0xFFFFFF, 0x000000, (const char *) view_buffer_key),
-        UI_LabelLineScrolling(2, 6, 30, 112, 11, 0xFFFFFF, 0x000000, (const char *) view_buffer_value),
+        UI_LabelLine(UIID_LABEL + 0, 0, 8, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.title),
+        UI_LabelLine(UIID_LABEL + 0, 0, 19, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.key),
+        UI_LabelLineScrolling(UIID_LABELSCROLL, 6, 30, 112, UI_11PX, UI_WHITE, UI_BLACK, viewdata.value),
 };
 
 static const bagl_element_t view_address[] = {
-        UI_FillRectangle(0, 0, 0, 128, 32, 0x000000, 0xFFFFFF),
+        UI_FillRectangle(0, 0, 0, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT, 0x000000, 0xFFFFFF),
         UI_Icon(0, 128 - 7, 0, 7, 7, BAGL_GLYPH_ICON_CHECK),
-        UI_LabelLine(1, 0, 8, 128, 11, 0xFFFFFF, 0x000000, (const char *) view_title),
-        UI_LabelLine(1, 0, 19, 128, 11, 0xFFFFFF, 0x000000, (const char *) view_buffer_key),
-        UI_LabelLineScrolling(2, 6, 30, 112, 11, 0xFFFFFF, 0x000000, (const char *) view_buffer_value),
+        UI_LabelLine(UIID_LABEL + 0, 0, 8, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.title),
+        UI_LabelLine(UIID_LABEL + 0, 0, 19, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.key),
+        UI_LabelLineScrolling(UIID_LABELSCROLL, 6, 30, 112, UI_11PX, UI_WHITE, UI_BLACK, viewdata.value),
 };
-
-void io_seproxyhal_display(const bagl_element_t *element) {
-    io_seproxyhal_display_default((bagl_element_t *) element);
-}
-
-const bagl_element_t *menu_main_prepro(const ux_menu_entry_t *menu_entry, bagl_element_t *element) {
-    switch (menu_entry->userid) {
-        case COND_SCROLL_L2: {
-            switch (element->component.userid) {
-                case 0x21: // 1st line
-                    // element->component.font_id = BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER;
-                    break;
-                case 0x22: // 2nd line
-                    element->component.stroke = 1;
-                    element->component.width = 80;
-                    element->component.icon_id = 50;
-                    break;
-            }
-        }
-    }
-    return element;
-}
 
 ////////////////////////////////////////////////
 //------ Event handlers
@@ -139,36 +151,20 @@ static unsigned int view_txinfo_button(unsigned int button_mask,
 
             // Press left to progress to the previous element
         case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
-            view_idx--;
+            viewdata.idx--;
             view_txinfo_show();
             break;
         }
 
             // Press right to progress to the next element
         case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-            view_idx++;
+            viewdata.idx++;
             view_txinfo_show();
             break;
         }
 
     }
     return 0;
-}
-
-const bagl_element_t *view_txinfo_prepro(const bagl_element_t *element) {
-
-    switch (element->component.userid) {
-        case 0x01:
-            UX_CALLBACK_SET_INTERVAL(2000);
-            break;
-        case 0x02:
-            UX_CALLBACK_SET_INTERVAL(MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
-            break;
-        case 0x03:
-            UX_CALLBACK_SET_INTERVAL(MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
-            break;
-    }
-    return element;
 }
 
 static unsigned int view_setidx_button(unsigned int button_mask,
@@ -183,10 +179,10 @@ static unsigned int view_setidx_button(unsigned int button_mask,
             // Press left to progress to cancel
         case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
             // Cancel changing the index
+            view_update_state();
+
             set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
             io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-            view_update_state(500);
-            view_main_menu();
             break;
         }
 
@@ -194,11 +190,10 @@ static unsigned int view_setidx_button(unsigned int button_mask,
         case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
             // Accept changing the index
             app_setidx();
+            view_update_state();
 
             set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
             io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-            view_update_state(500);
-            view_main_menu();
             break;
         }
 
@@ -215,19 +210,19 @@ static unsigned int view_address_button(unsigned int button_mask,
             break;
         }
 
-        // Press left to progress to cancel
+            // Press left to progress to cancel
         case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
             // DO NOTHING
             break;
         }
 
-        // Press right to progress to accept
+            // Press right to progress to accept
         case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
             // Go back to main menu
+            view_update_state();
+
             set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
             io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-            view_update_state(500);
-            view_main_menu();
             break;
         }
 
@@ -235,96 +230,37 @@ static unsigned int view_address_button(unsigned int button_mask,
     return 0;
 }
 
-const bagl_element_t *view_setidx_prepro(const bagl_element_t *element) {
-
+const bagl_element_t *view_prepro(const bagl_element_t *element) {
     switch (element->component.userid) {
-        case 0x01:
+        case UIID_ICONLEFT:
+        case UIID_ICONRIGHT:
             UX_CALLBACK_SET_INTERVAL(2000);
             break;
-        case 0x02:
-            UX_CALLBACK_SET_INTERVAL(MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
-            break;
-        case 0x03:
+        case UIID_LABELSCROLL:
             UX_CALLBACK_SET_INTERVAL(MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
             break;
     }
     return element;
 }
 
-const bagl_element_t *view_address_prepro(const bagl_element_t *element) {
-
-    switch (element->component.userid) {
-        case 0x01:
-            UX_CALLBACK_SET_INTERVAL(2000);
-            break;
-        case 0x02:
-            UX_CALLBACK_SET_INTERVAL(MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
-            break;
-        case 0x03:
-            UX_CALLBACK_SET_INTERVAL(MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
-            break;
-    }
-    return element;
-}
-
-
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
-void handler_init_device(unsigned int unused) {
-    UNUSED(unused);
-    while (app_initialize_xmss_step()) {
-        view_update_state(50);
-    }
-    view_update_state(50);
-    view_main_menu();
+#endif
+
+void io_seproxyhal_display(const bagl_element_t *element) {
+    io_seproxyhal_display_default((bagl_element_t *) element);
 }
-
-void handler_main_menu_select(unsigned int _) {
-    UNUSED(_);
-
-    view_update_state(50);
-    view_main_menu();
-}
-
-void handler_view_tx(unsigned int unused) {
-    UNUSED(unused);
-
-    view_idx = 0;
-    view_txinfo_show();
-}
-
-void handler_sign_tx(unsigned int unused) {
-    UNUSED(unused);
-    app_sign();
-
-    set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-    view_update_state(1000);
-    view_main_menu();
-}
-
-void handler_reject_tx(unsigned int unused) {
-    UNUSED(unused);
-
-    set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-    view_update_state(50);
-    view_main_menu();
-}
-
-////////////////////////////////////////////////
-////////////////////////////////////////////////
 
 void view_init(void) {
     UX_INIT();
 }
 
-void view_main_menu(void) {
+void view_idle_menu(void) {
     if (N_appdata.mode != APPMODE_READY) {
-        UX_MENU_DISPLAY(0, menu_main_not_ready, menu_main_prepro);
+        UX_MENU_DISPLAY(0, menu_idle_init, NULL);
     } else {
-        UX_MENU_DISPLAY(0, menu_main, menu_main_prepro);
+        UX_MENU_DISPLAY(0, menu_idle, NULL);
     }
 }
 
@@ -332,32 +268,31 @@ void view_sign_menu(void) {
     UX_MENU_DISPLAY(0, menu_sign, NULL);
 }
 
-void view_update_state(uint16_t interval) {
+void view_update_state() {
     switch (N_appdata.mode) {
         case APPMODE_NOT_INITIALIZED: {
-            snprintf(view_buffer_value, sizeof(view_buffer_value), "not ready ");
+            print_status("not ready ");
         }
             break;
         case APPMODE_KEYGEN_RUNNING: {
-            snprintf(view_buffer_value, sizeof(view_buffer_value), "KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
+            print_status("KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
         }
             break;
         case APPMODE_READY: {
             if (N_appdata.xmss_index >= 256) {
-                snprintf(view_buffer_value, sizeof(view_buffer_value), "NO SIGS LEFT");
+                print_status( "NO SIGS LEFT");
                 break;
             }
 
             if (N_appdata.xmss_index > 250) {
-                snprintf(view_buffer_value, sizeof(view_buffer_value), "WARN! rem:%03d", 256 - N_appdata.xmss_index);
+                print_status("WARN! rem:%03d", 256 - N_appdata.xmss_index);
                 break;
             }
 
-            snprintf(view_buffer_value, sizeof(view_buffer_value), "READY rem:%03d", 256 - N_appdata.xmss_index);
+            print_status("READY rem:%03d", 256 - N_appdata.xmss_index);
         }
             break;
     }
-    UX_CALLBACK_SET_INTERVAL(interval);
 }
 
 void view_txinfo_show() {
@@ -365,42 +300,42 @@ void view_txinfo_show() {
 #define PTR_DIST(p2, p1) ((char *)p2) - ((char *)p1)
 
     uint8_t
-    elem_idx = 0;
+            elem_idx = 0;
 
     switch (ctx.qrltx.type) {
 
         case QRLTX_TX: {
-            strcpy(view_title, "TRANSFER");
+            strcpy(viewdata.title, "TRANSFER");
 
-            switch (view_idx) {
+            switch (viewdata.idx) {
                 case 0: {
-                    strcpy(view_buffer_key, "Source Addr");
-                    view_buffer_value[0] = 'Q';
-                    ARRTOHEX(view_buffer_value + 1, ctx.qrltx.tx.master.address);
+                    strcpy(viewdata.key, "Source Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.tx.master.address);
                     break;
                 }
                 case 1: {
-                    strcpy(view_buffer_key, "Fee (QRL)");
+                    strcpy(viewdata.key, "Fee (QRL)");
 
-                    AMOUNT_TO_STR(view_buffer_value,
+                    AMOUNT_TO_STR(viewdata.value,
                                   ctx.qrltx.tx.master.amount,
                                   QUANTA_DECIMALS);
                     break;
                 }
                 default: {
-                    elem_idx = (view_idx - 2) >> 1;
+                    elem_idx = (viewdata.idx - 2) >> 1;
                     if (elem_idx >= QRLTX_SUBITEM_MAX) EXIT_VIEW();
                     if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
 
                     qrltx_addr_block *dst = &ctx.qrltx.tx.dst[elem_idx];
 
-                    if (view_idx % 2 == 0) {
-                        snprintf(view_buffer_key, sizeof(view_buffer_key), "Dst %d", elem_idx);
-                        view_buffer_value[0] = 'Q';
-                        ARRTOHEX(view_buffer_value + 1, dst->address);
+                    if (viewdata.idx % 2 == 0) {
+                        snprintf(viewdata.key, sizeof(viewdata.key), "Dst %d", elem_idx);
+                        viewdata.value[0] = 'Q';
+                        ARRTOHEX(viewdata.value + 1, dst->address);
                     } else {
-                        snprintf(view_buffer_key, sizeof(view_buffer_key), "Amount %d (QRL)", elem_idx);
-                        AMOUNT_TO_STR(view_buffer_value, dst->amount, QUANTA_DECIMALS);
+                        snprintf(viewdata.key, sizeof(viewdata.key), "Amount %d (QRL)", elem_idx);
+                        AMOUNT_TO_STR(viewdata.value, dst->amount, QUANTA_DECIMALS);
                     }
                     break;
                 }
@@ -409,42 +344,42 @@ void view_txinfo_show() {
         }
 #ifdef TXTOKEN_ENABLED
         case QRLTX_TXTOKEN: {
-            strcpy(view_title, "TRANSFER TOKEN");
+            strcpy(viewdata.title, "TRANSFER TOKEN");
 
-            switch (view_idx) {
+            switch (viewdata.idx) {
                 case 0: {
-                    strcpy(view_buffer_key, "Source Addr");
-                    view_buffer_value[0] = 'Q';
-                    ARRTOHEX(view_buffer_value + 1, ctx.qrltx.txtoken.master.address);
+                    strcpy(viewdata.key, "Source Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.txtoken.master.address);
                     break;
                 }
                 case 1: {
-                    strcpy(view_buffer_key, "Fee (QRL)");
-                    AMOUNT_TO_STR(view_buffer_value,
+                    strcpy(viewdata.key, "Fee (QRL)");
+                    AMOUNT_TO_STR(viewdata.value,
                                   ctx.qrltx.txtoken.master.amount,
                                   QUANTA_DECIMALS);
                     break;
                 }
                 case 2: {
-                    strcpy(view_buffer_key, "Token Hash");
-                    ARRTOHEX(view_buffer_value, ctx.qrltx.txtoken.token_hash);
+                    strcpy(viewdata.key, "Token Hash");
+                    ARRTOHEX(viewdata.value, ctx.qrltx.txtoken.token_hash);
                     break;
                 }
                 default: {
-                    elem_idx = (view_idx - 3) >> 2;
+                    elem_idx = (viewdata.idx - 3) >> 2;
                     if (elem_idx >= QRLTX_SUBITEM_MAX) EXIT_VIEW();
                     if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
 
                     qrltx_addr_block *dst = &ctx.qrltx.txtoken.dst[elem_idx];
 
                     if (view_idx % 2 == 0) {
-                        snprintf(view_buffer_key, sizeof(view_buffer_key), "Dst %d", elem_idx);
-                        view_buffer_value[0] = 'Q';
-                        ARRTOHEX(view_buffer_value + 1, dst->address);
+                        snprintf(viewdata.key, sizeof(viewdata.key), "Dst %d", elem_idx);
+                        viewdata.value[0] = 'Q';
+                        ARRTOHEX(viewdata.value + 1, dst->address);
                     } else {
-                        snprintf(view_buffer_key, sizeof(view_buffer_key), "Amount %d (QRL)", elem_idx);
+                        snprintf(viewdata.key, sizeof(viewdata.key), "Amount %d (QRL)", elem_idx);
                         // TODO: Decide what to do with token decimals
-                        AMOUNT_TO_STR(view_buffer_value, dst->amount, 0);
+                        AMOUNT_TO_STR(viewdata.value, dst->amount, 0);
                     }
                     break;
                 }
@@ -458,14 +393,14 @@ void view_txinfo_show() {
 
             switch (view_idx) {
                 case 0: {
-                    strcpy(view_buffer_key, "Master Addr");
-                    view_buffer_value[0] = 'Q';
-                    ARRTOHEX(view_buffer_value + 1, ctx.qrltx.slave.master.address);
+                    strcpy(viewdata.key, "Master Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.slave.master.address);
                     break;
                 }
                 case 1: {
-                    strcpy(view_buffer_key, "Fee (QRL)");
-                    AMOUNT_TO_STR(view_buffer_value,
+                    strcpy(viewdata.key, "Fee (QRL)");
+                    AMOUNT_TO_STR(viewdata.value,
                                   ctx.qrltx.slave.master.amount,
                                   QUANTA_DECIMALS);
                     break;
@@ -476,11 +411,11 @@ void view_txinfo_show() {
                     if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
 
                     if (view_idx % 2 == 0) {
-                        snprintf(view_buffer_key, sizeof(view_buffer_key), "Slave PK %d", elem_idx);
-                        ARRTOHEX(view_buffer_value, ctx.qrltx.slave.slaves[elem_idx].pk);
+                        snprintf(viewdata.key, sizeof(viewdata.key), "Slave PK %d", elem_idx);
+                        ARRTOHEX(viewdata.value, ctx.qrltx.slave.slaves[elem_idx].pk);
                     } else {
-                        snprintf(view_buffer_key, sizeof(view_buffer_key), "Access Type %d", elem_idx);
-                        ARRTOHEX(view_buffer_value, ctx.qrltx.slave.slaves[elem_idx].access);
+                        snprintf(viewdata.key, sizeof(viewdata.key), "Access Type %d", elem_idx);
+                        ARRTOHEX(viewdata.value, ctx.qrltx.slave.slaves[elem_idx].access);
                     }
                     break;
                 }
@@ -489,27 +424,27 @@ void view_txinfo_show() {
         }
 #endif
         case QRLTX_MESSAGE: {
-            strcpy(view_title, "MESSAGE");
+            strcpy(viewdata.title, "MESSAGE");
 
-            switch (view_idx) {
+            switch (viewdata.idx) {
                 case 0: {
-                    strcpy(view_buffer_key, "Source Addr");
-                    view_buffer_value[0] = 'Q';
-                    ARRTOHEX(view_buffer_value + 1,
+                    strcpy(viewdata.key, "Source Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1,
                              ctx.qrltx.msg.master.address);
                     break;
                 }
                 case 1: {
-                    strcpy(view_buffer_key, "Fee (QRL)");
+                    strcpy(viewdata.key, "Fee (QRL)");
 
-                    AMOUNT_TO_STR(view_buffer_value,
+                    AMOUNT_TO_STR(viewdata.value,
                                   ctx.qrltx.msg.master.amount,
                                   QUANTA_DECIMALS);
                     break;
                 }
                 case 2: {
-                    strcpy(view_buffer_key, "Message");
-                    array_to_hexstr(view_buffer_value,
+                    strcpy(viewdata.key, "Message");
+                    array_to_hexstr(viewdata.value,
                                     ctx.qrltx.msg.message,
                                     ctx.qrltx.subitem_count);
                     break;
@@ -523,15 +458,31 @@ void view_txinfo_show() {
         default: EXIT_VIEW()
     }
 
-    UX_DISPLAY(view_txinfo, view_txinfo_prepro);
+#if defined(TARGET_NANOS)
+    UX_DISPLAY(view_txinfo, view_prepro);
+#elif defined(TARGET_NANOX)
+    // TODO: Complete
+//    if(G_ux.stack_count == 0) {
+//        ux_stack_push();
+//    }
+//    ux_flow_init(0, ux_tx_flow, NULL);
+#endif
 }
 
 void view_setidx_show() {
-    strcpy(view_title, "WARNING!");
-    strcpy(view_buffer_key, "Set XMSS Index");
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "New Value %d", ctx.new_idx);
+    strcpy(viewdata.title, "WARNING!");
+    strcpy(viewdata.key, "Set XMSS Index");
+    print_status("New Value %d", ctx.new_idx);
 
-    UX_DISPLAY(view_setidx, view_setidx_prepro);
+#if defined(TARGET_NANOS)
+    UX_DISPLAY(view_setidx, view_prepro);
+#elif defined(TARGET_NANOX)
+    // TODO: Complete
+    //    if(G_ux.stack_count == 0) {
+//        ux_stack_push();
+//    }
+//    ux_flow_init(0, ux_tx_flow, NULL);
+#endif
 }
 
 void view_address_show() {
@@ -544,12 +495,12 @@ void view_address_show() {
 
     // Copy raw pk into pk
     unsigned char pk[64];
-    memcpy(pk, N_appdata.pk.raw,64);
+    MEMCPY(pk, N_appdata.pk.raw,64);
 
     // Copy desc and pk to form extended_pubkey
     unsigned char extended_pubkey[67];
-    memcpy(extended_pubkey, desc, 3);
-    memcpy(extended_pubkey + 3, pk, 64);
+    MEMCPY(extended_pubkey, desc, 3);
+    MEMCPY(extended_pubkey + 3, pk, 64);
 
     // Objects to store sha256 hashes in
     unsigned char hash_out[32];
@@ -560,22 +511,64 @@ void view_address_show() {
 
     // Copy desc and hash_out to create hashable bytes for verification checksum
     unsigned char verification_sum[35];
-    memcpy(verification_sum, desc, 3);
-    memcpy(verification_sum + 3, hash_out, 32);
+    MEMCPY(verification_sum, desc, 3);
+    MEMCPY(verification_sum + 3, hash_out, 32);
 
     // Calculate VERH - sha2-256(DESC+hash_out)
     cx_hash_sha256(verification_sum, 35, verh_out, 32);
 
     // Now join desc, hash_out and last 4 bytes of verh_out to form address
     unsigned char address[39];
-    memcpy(address, desc, 3);
-    memcpy(address + 3, hash_out, 32);
-    memcpy(address + 3 + 32, verh_out + 28, 4);
+    MEMCPY(address, desc, 3);
+    MEMCPY(address + 3, hash_out, 32);
+    MEMCPY(address + 3 + 32, verh_out + 28, 4);
 
     // Prepare for display
-    strcpy(view_title, "VERIFY");
-    strcpy(view_buffer_key, "Your QRL Address");
-    view_buffer_value[0] = 'Q';
-    ARRTOHEX(view_buffer_value + 1, address);
-    UX_DISPLAY(view_address, view_address_prepro);
+    strcpy(viewdata.title, "VERIFY");
+    strcpy(viewdata.key, "Your QRL Address");
+    viewdata.value[0] = 'Q';
+    ARRTOHEX(viewdata.value + 1, address);
+
+#if defined(TARGET_NANOS)
+    UX_DISPLAY(view_address, view_prepro);
+#elif defined(TARGET_NANOX)
+    // TODO: Complete
+//    if(G_ux.stack_count == 0) {
+//        ux_stack_push();
+//    }
+//    ux_flow_init(0, ux_tx_flow, NULL);
+#endif
+}
+
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+
+void handler_view_tx(unsigned int _) {
+    UNUSED(_);
+    // TODO: Create a better view
+    viewdata.idx = 0;
+    view_txinfo_show();
+}
+
+void handler_sign_tx(unsigned int _) {
+    UNUSED(_);
+    app_sign();
+
+    view_update_state();
+
+    set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+}
+
+void handler_reject_tx(unsigned int _) {
+    UNUSED(_);
+
+    view_update_state();
+
+    set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
 }

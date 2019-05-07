@@ -18,33 +18,32 @@
 
 #include "os.h"
 #include "cx.h"
-#include <os_io_seproxyhal.h>
 
 #define MAX_CHARS_PER_KEY_LINE      32
 #define MAX_CHARS_PER_VALUE_LINE    128
 
-extern char view_buffer_key[MAX_CHARS_PER_KEY_LINE];
-extern char view_buffer_value[MAX_CHARS_PER_VALUE_LINE];
+typedef struct {
+    char title[16];
+    char key[MAX_CHARS_PER_KEY_LINE];
+    char value[MAX_CHARS_PER_VALUE_LINE];
+    int8_t idx;
+} view_t;
 
-enum UI_STATE {
-  UI_IDLE,
-  UI_SIGN
-};
-
-extern enum UI_STATE view_uiState;
+extern view_t viewdata;
 
 void view_init(void);
-void view_main_menu(void);
+void view_idle_menu(void);
 void view_sign_menu(void);
 void view_txinfo_show();
 void view_setidx_show();
 void view_address_show();
 
-void view_update_state(uint16_t interval);
-
 void handler_view_tx(unsigned int unused);
 void handler_sign_tx(unsigned int unused);
 void handler_reject_tx(unsigned int unused);
 void handler_init_device(unsigned int);
-void handler_main_menu_select(unsigned int);
+void handler_menu_idle_select(unsigned int);
 
+#define print_key(...) snprintf(viewdata.key, sizeof(viewdata.key), __VA_ARGS__);
+#define print_status(...) snprintf(viewdata.value, sizeof(viewdata.value), __VA_ARGS__);
+void view_update_state();

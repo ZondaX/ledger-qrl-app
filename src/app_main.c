@@ -30,9 +30,11 @@
 #include "app_crypto.h"
 
 #include "test_data/test_data.h"
+
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
 void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx);
+
 void parse_view_address(volatile uint32_t *tx, uint32_t rx);
 
 unsigned char io_event(unsigned char channel) {
@@ -138,7 +140,7 @@ void app_init() {
     USB_power(1);
 
     view_update_state(100);
-    view_main_menu();
+    view_idle_menu();
 
     memset(&ctx, 0, sizeof(app_ctx_t));
 }
@@ -234,8 +236,7 @@ void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
     const uint8_t index = p1;
     const uint8_t *p=N_DATA.xmss_nodes + 32 * index;
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "W[%03d]: %03d", size, index);
-    debug_printf(view_buffer_value);
+    print_status("W[%03d]: %03d", size, index);
 
     MEMCPY_NV((void*)p, (void *)data, size);
     view_update_state(2000);
@@ -248,8 +249,7 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
         THROW(APDU_CODE_WRONG_LENGTH);
     }
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "keygen: root");
-    debug_printf(view_buffer_value);
+    print_status("keygen: root");
 
     xmss_pk_t pk;
     memset(pk.raw, 0, 64);
@@ -286,8 +286,7 @@ void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
 
     MEMMOVE(G_io_apdu_buffer, (void *) p, 32);
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "Read %d", index);
-    debug_printf(view_buffer_value);
+    print_status("Read %d", index);
 
     *tx+=32;
     view_update_state(2000);
@@ -313,10 +312,7 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
     MEMMOVE(G_io_apdu_buffer, seed, 48);
     *tx+=48;
 
-    snprintf(view_buffer_value,
-            sizeof(view_buffer_value),
-            "GET_SEED");
-    debug_printf(view_buffer_value);
+    print_status("GET_SEED");
 
     view_update_state(500);
 }
@@ -346,8 +342,7 @@ void test_digest(volatile uint32_t *tx, uint32_t rx)
     const uint8_t index = p1;
     xmss_digest(&digest, msg, &N_DATA.sk, index);
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "Digest idx %d", index+1);
-    debug_printf(view_buffer_value);
+    print_status("Digest idx %d", index+1);
 
     os_memmove(G_io_apdu_buffer, digest.raw, 64);
 
@@ -382,16 +377,6 @@ void app_get_version(volatile uint32_t *tx, uint32_t rx) {
     G_io_apdu_buffer[3] = LEDGER_PATCH_VERSION;
     *tx += 4;
 
-#ifdef TESTING_ENABLED
-    const char *ver_str = "Ver %02d.%02d.%02d TEST";
-    snprintf(view_buffer_value, sizeof(view_buffer_value),
-             ver_str,
-             LEDGER_MAJOR_VERSION,
-             LEDGER_MINOR_VERSION,
-             LEDGER_PATCH_VERSION);
-    debug_printf(view_buffer_value);
-#endif
-
     view_update_state(2000);
 }
 
@@ -424,7 +409,7 @@ char app_initialize_xmss_step() {
     // Generate all leaves
     if (N_appdata.mode == APPMODE_NOT_INITIALIZED) {
         uint8_t
-        seed[48];
+                seed[48];
 
         get_seed(seed);
 
@@ -437,8 +422,7 @@ char app_initialize_xmss_step() {
     }
 
     if (N_appdata.xmss_index < 256) {
-        snprintf(view_buffer_value, sizeof(view_buffer_value), "keygen: %03d/256", N_appdata.xmss_index + 1);
-        debug_printf(view_buffer_value);
+        print_status("keygen: %03d/256", N_appdata.xmss_index + 1);
 
 #ifdef TESTING_ENABLED
         for (int idx  = 0; idx < 256; idx +=4){
@@ -456,8 +440,7 @@ char app_initialize_xmss_step() {
 #endif
 
     } else {
-        snprintf(view_buffer_value, sizeof(view_buffer_value), "keygen: root");
-        debug_printf(view_buffer_value);
+        print_status("keygen: root");
 
         xmss_pk_t pk;
         memset(pk.raw, 0, 64);
@@ -520,8 +503,8 @@ void app_sign(volatile uint32_t *tx, uint32_t rx) {
             &ctx.xmss_sig_ctx,
             msg,
             &N_DATA.sk,
-            (uint8_t * )
-    N_DATA.xmss_nodes,
+            (uint8_t *)
+                    N_DATA.xmss_nodes,
             N_appdata.xmss_index);
 
     // Move index forward
@@ -680,7 +663,6 @@ void app_main() {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
-                        debug_printf("SIGNING");
                         app_sign_next(&tx, rx);
                         view_update_state(1000);
                         THROW(APDU_CODE_OK);
