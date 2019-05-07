@@ -11,7 +11,7 @@ void wotsp_expand_seed(NV_VOL NV_CONST uint8_t *pk, const uint8_t *seed) {
            prf_input.seed_gen.cdr++, pk += WOTS_N) {
         uint8_t tmp[32];
         shash96(tmp, &prf_input);
-        MEMCPY_NV(pk, tmp, 32);
+        MEMCPY_NV((void *) pk, tmp, 32);
     }
 }
 
@@ -25,17 +25,17 @@ __Z_INLINE void wotsp_gen_chain_mem(uint8_t *in_out, shash_input_t *prf_input, u
 
 void wotsp_gen_chain(NV_VOL NV_CONST uint8_t *in_out, shash_input_t *prf_input, uint8_t start, int8_t count) {
     uint8_t tmp[32];
-    memcpy(tmp, in_out, 32);
+    MEMCPY(tmp, (void *) in_out, 32);
     wotsp_gen_chain_mem(tmp, prf_input, start, count);
-    MEMCPY_NV(in_out, tmp, 32);
+    MEMCPY_NV((void *) in_out, tmp, 32);
 }
 
-void wotsp_gen_pk(NV_VOL NV_CONST uint8_t *pk, uint8_t *sk, const uint8_t *pub_seed, uint16_t index) {
+void wotsp_gen_pk(NV_VOL NV_CONST uint8_t *pk, uint8_t *sk, NV_VOL const uint8_t *pub_seed, uint16_t index) {
     wotsp_expand_seed(pk, sk);
 
     shash_input_t prf_input;
     PRF_init(&prf_input, SHASH_TYPE_PRF);
-    memcpy(prf_input.key, pub_seed, WOTS_N);
+    MEMCPY(prf_input.key, (void *) pub_seed, WOTS_N);
 
     ADRS_init(&prf_input.adrs, 0);
     prf_input.adrs.otshash.OTS = HtoNL(index);
@@ -47,14 +47,13 @@ void wotsp_gen_pk(NV_VOL NV_CONST uint8_t *pk, uint8_t *sk, const uint8_t *pub_s
     }
 }
 
-void wotsp_sign_init_ctx(
-    wots_sign_ctx_t *ctx,
-    const uint8_t *pub_seed,
-    const uint8_t *sk,
-    uint16_t index) {
+void wotsp_sign_init_ctx(wots_sign_ctx_t *ctx,
+                         NV_VOL const uint8_t *pub_seed,
+                         NV_VOL const uint8_t *sk,
+                         uint16_t index) {
     PRF_init(&ctx->prf_input1, SHASH_TYPE_PRF);
     ctx->prf_input1.adrs.otshash.OTS = NtoHL(index);
-    memcpy(ctx->prf_input1.key, pub_seed, WOTS_N);
+    MEMCPY(ctx->prf_input1.key, (void *) pub_seed, WOTS_N);
 
     ctx->bits = 0;      // init context
     ctx->csum = 0;
@@ -62,13 +61,13 @@ void wotsp_sign_init_ctx(
     ctx->total = 0;
 
     PRF_init(&ctx->prf_input2, SHASH_TYPE_PRF);
-    memcpy(ctx->prf_input2.key, sk, WOTS_N);
+    MEMCPY(ctx->prf_input2.key, (void *) sk, WOTS_N);
 }
 
 void wotsp_sign_step(
-    wots_sign_ctx_t *ctx,
-    uint8_t *out_sig_p,
-    const uint8_t *msg) {
+        wots_sign_ctx_t *ctx,
+        uint8_t *out_sig_p,
+        const uint8_t *msg) {
     shash96(out_sig_p, &ctx->prf_input2);
 
     if (ctx->bits == 0) {
@@ -90,11 +89,11 @@ void wotsp_sign_step(
 }
 
 void wotsp_sign(
-    uint8_t *out_sig,
-    const uint8_t *msg,
-    const uint8_t *pub_seed,
-    const uint8_t *sk,
-    uint16_t index) {
+        uint8_t *out_sig,
+        const uint8_t *msg,
+        NV_VOL const uint8_t *pub_seed,
+        NV_VOL const uint8_t *sk,
+        uint16_t index) {
     // This function splits wots signature in two steps
     // and allows for incremental signing
     wots_sign_ctx_t ctx;

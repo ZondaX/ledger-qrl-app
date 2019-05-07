@@ -47,7 +47,6 @@ UX_STEP_NOCB_INIT(ux_idle_flow_1_step, pbb, { view_update_state(); }, { &C_icon_
 UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
 UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show Addr",});
 
-UX_FLOW_DEF_VALID(ux_idle_flow_3_step, pb, h_tree_switch(0), { &C_icon_refresh, "Switch Tree",});
 UX_FLOW_DEF_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
 UX_FLOW_DEF_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
@@ -55,7 +54,6 @@ UX_FLOW_DEF_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboar
 const ux_flow_step_t *const ux_idle_flow [] = {
   &ux_idle_flow_1_step,
   &ux_idle_flow_2pk_step,
-  &ux_idle_flow_3_step,
   &ux_idle_flow_4_step,
   &ux_idle_flow_5_step,
   FLOW_END_STEP,
@@ -64,7 +62,6 @@ const ux_flow_step_t *const ux_idle_flow [] = {
 const ux_flow_step_t *const ux_idle_init_flow [] = {
   &ux_idle_flow_1_step,
   &ux_idle_flow_2init_step,
-  &ux_idle_flow_3_step,
   &ux_idle_flow_4_step,
   &ux_idle_flow_5_step,
   FLOW_END_STEP,
@@ -272,7 +269,7 @@ void view_idle_menu(void) {
     if(G_ux.stack_count == 0) {
         ux_stack_push();
     }
-    if (APP_CURRENT_TREE_MODE != APPMODE_READY) {
+    if (N_appdata.mode != APPMODE_READY) {
         ux_flow_init(0, ux_idle_init_flow, NULL);
     } else {
         ux_flow_init(0, ux_idle_flow, NULL);

@@ -35,9 +35,7 @@ char actions_tree_init_step() {
 
     // Generate all leaves
     if (N_appdata.mode == APPMODE_NOT_INITIALIZED) {
-        uint8_t
-                seed[48];
-
+        uint8_t seed[48];
         get_seed(seed);
 
         xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
@@ -50,6 +48,8 @@ char actions_tree_init_step() {
 
     if (N_appdata.xmss_index < 256) {
         print_status("keygen: %03d/256", N_appdata.xmss_index + 1);
+        view_idle_menu();
+        UX_WAIT();
 
 #ifdef TESTING_ENABLED
         for (int idx  = 0; idx < 256; idx +=4){
@@ -68,6 +68,8 @@ char actions_tree_init_step() {
 
     } else {
         print_status("keygen: root");
+        view_idle_menu();
+        UX_WAIT();
 
         xmss_pk_t pk;
         memset(pk.raw, 0, 64);

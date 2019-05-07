@@ -132,17 +132,6 @@ void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
-void app_init() {
-    io_seproxyhal_init();
-    USB_power(0);
-    USB_power(1);
-
-    view_update_state();
-    view_idle_menu();
-
-    memset(&ctx, 0, sizeof(app_ctx_t));
-}
-
 #ifdef TESTING_ENABLED
 void test_set_state(volatile uint32_t *tx, uint32_t rx)
 {
@@ -534,6 +523,22 @@ void app_setidx() {
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
+
+void app_init() {
+    io_seproxyhal_init();
+    USB_power(0);
+    USB_power(1);
+
+    // Initialize storage
+
+
+    // Clear context
+    MEMSET(&ctx, 0, sizeof(app_ctx_t));
+
+    // Initialize UI
+    view_update_state();
+    view_idle_menu();
+}
 
 void app_main() {
     volatile uint32_t rx = 0, tx = 0, flags = 0;

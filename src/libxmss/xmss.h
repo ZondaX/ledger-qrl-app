@@ -13,8 +13,8 @@
 
 __Z_INLINE void xmss_pk(xmss_pk_t *pk_out,
                         NV_VOL const xmss_sk_t *sk_in) {
-    memcpy(pk_out->root, (void *) sk_in->root, 32);
-    memcpy(pk_out->pub_seed, (void *) sk_in->pub_seed, 32);
+    MEMCPY((void *) pk_out->root, (void *) sk_in->root, 32);
+    MEMCPY((void *) pk_out->pub_seed, (void *) sk_in->pub_seed, 32);
 }
 
 void xmss_ltree_gen(NV_VOL NV_CONST uint8_t *leaf,
@@ -25,17 +25,17 @@ void xmss_ltree_gen(NV_VOL NV_CONST uint8_t *leaf,
 void xmss_treehash(
         uint8_t *root_out,
         uint8_t *authpath,
-        const uint8_t *nodes,
-        const uint8_t *pub_seed,
+        NV_VOL const uint8_t *nodes,
+        NV_VOL const uint8_t *pub_seed,
         uint16_t leaf_index);
 
 void xmss_randombits(NV_VOL NV_CONST uint8_t *random_bits,
                      NV_VOL const uint8_t sk_seed[48]
 );
 
-void xmss_get_seed_i(uint8_t *seed, const xmss_sk_t *sk, uint16_t idx);
+void xmss_get_seed_i(uint8_t *seed, NV_VOL const xmss_sk_t *sk, uint16_t idx);
 
-void xmss_gen_keys_1_get_seeds(NV_VOL NV_CONST  xmss_sk_t *sk,
+void xmss_gen_keys_1_get_seeds(NV_VOL NV_CONST xmss_sk_t *sk,
                                const uint8_t *sk_seed
 );
 
