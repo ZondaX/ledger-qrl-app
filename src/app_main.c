@@ -27,15 +27,13 @@
 #include "libxmss/xmss.h"
 #include "libxmss/nvram.h"
 #include "storage.h"
+#include "app_crypto.h"
 
 #include "test_data/test_data.h"
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
-app_ctx_t ctx;
 
-bool parse_unsigned_message(volatile uint32_t *tx, uint32_t rx);
-bool parse_view_address(volatile uint32_t *tx, uint32_t rx);
-
-void hash_tx(uint8_t msg[32]);
+void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx);
+void parse_view_address(volatile uint32_t *tx, uint32_t rx);
 
 unsigned char io_event(unsigned char channel) {
     switch (G_io_seproxyhal_spi_buffer[0]) {
@@ -101,43 +99,7 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
 
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
-
-const uint32_t bip32_path[5] = {
-        0x80000000 | 44,
-        0x80000000 | 238,
-        0x80000000 | 0,
-        0x80000000 | 0,
-        0x80000000 | 0
-};
-
-void get_seed(uint8_t *seed) {
-    union {
-        unsigned char all[64];
-        struct {
-            unsigned char seed[32];
-            unsigned char chain[32];
-        };
-    } u;
-
-    memset(seed, 0, 48);
-
-#ifdef TESTING_MOCKSEED
-    // Keep as all zeros for reproducible tests
-#else
-    unsigned char tmp_out[64];
-
-    os_memset(u.all, 0, 64);
-    os_perso_derive_node_bip32(CX_CURVE_SECP256K1, bip32_path, 5, u.seed, u.chain);
-
-    cx_sha3_t hash_sha3;
-    cx_sha3_init(&hash_sha3, 512);
-    cx_hash(&hash_sha3.header, CX_LAST, u.all, 64, tmp_out, 64);
-    memcpy(seed, tmp_out, 48);
-#endif
-}
-
-/// Get the message to sign from the buffer
-bool parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
+void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
     if (N_appdata.mode != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
@@ -165,15 +127,6 @@ bool parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
 
     // move the buffer to the tx ctx
     memcpy((uint8_t * ) & ctx.qrltx, msg, rx);
-
-    return true;
-}
-
-void hash_tx(uint8_t hash[32]) {
-    const int8_t ret = get_qrltx_hash(&ctx.qrltx, hash);
-    if (ret < 0) {
-        THROW(APDU_CODE_DATA_INVALID);
-    }
 }
 
 ////////////////////////////////////////////////
@@ -233,7 +186,7 @@ void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
     xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
     xmss_gen_keys_2_get_nodes((uint8_t*) &N_DATA.wots_buffer, (void*)p, &N_DATA.sk, idx);
 
-    os_memmove(G_io_apdu_buffer, p, 32);
+    MEMMOVE(G_io_apdu_buffer, (const void *)p, 32);
     *tx+=32;
 
     view_update_state(500);
@@ -284,7 +237,7 @@ void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
     snprintf(view_buffer_value, sizeof(view_buffer_value), "W[%03d]: %03d", size, index);
     debug_printf(view_buffer_value);
 
-    MEMCPY_NV((void*)p, data, size);
+    MEMCPY_NV((void*)p, (void *)data, size);
     view_update_state(2000);
 }
 
@@ -331,7 +284,7 @@ void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
     const uint8_t index = p1;
     const uint8_t *p=N_DATA.xmss_nodes + 32 * index;
 
-    os_memmove(G_io_apdu_buffer, p, 32);
+    MEMMOVE(G_io_apdu_buffer, (void *) p, 32);
 
     snprintf(view_buffer_value, sizeof(view_buffer_value), "Read %d", index);
     debug_printf(view_buffer_value);
@@ -357,7 +310,7 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
     uint8_t seed[48];
     get_seed(seed);
 
-    os_memmove(G_io_apdu_buffer, seed, 48);
+    MEMMOVE(G_io_apdu_buffer, seed, 48);
     *tx+=48;
 
     snprintf(view_buffer_value,
@@ -370,9 +323,7 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
 
 void test_digest(volatile uint32_t *tx, uint32_t rx)
 {
-    if (!parse_unsigned_message(tx, rx)){
-        THROW(APDU_CODE_WRONG_LENGTH);
-    }
+    parse_unsigned_message(tx, rx);
 
     const uint8_t p1 = G_io_apdu_buffer[2];
     const uint8_t p2 = G_io_apdu_buffer[3];
@@ -421,10 +372,9 @@ void app_get_version(volatile uint32_t *tx, uint32_t rx) {
     UNUSED(p2);
     UNUSED(data);
 
+    G_io_apdu_buffer[0] = 0;
 #ifdef TESTING_ENABLED
     G_io_apdu_buffer[0] = 0xFF;
-#else
-    G_io_apdu_buffer[0] = 0;
 #endif
 
     G_io_apdu_buffer[1] = LEDGER_MAJOR_VERSION;
@@ -632,7 +582,7 @@ void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
     ctx.new_idx = *data;
 }
 
-bool parse_view_address(volatile uint32_t *tx, uint32_t rx) {
+void parse_view_address(volatile uint32_t *tx, uint32_t rx) {
     if (N_appdata.mode != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
@@ -647,8 +597,6 @@ bool parse_view_address(volatile uint32_t *tx, uint32_t rx) {
     UNUSED(p1);
     UNUSED(p2);
     UNUSED(data);
-
-    return true;
 }
 
 void app_setidx() {
