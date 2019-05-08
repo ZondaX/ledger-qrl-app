@@ -57,6 +57,14 @@ void h_setidx_reject() {
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
 }
 
+void h_show_addr() {
+#if defined(TARGET_NANOX)
+    ux_layout_bnnn_paging_reset();
+#endif
+    view_address_show();
+    UX_WAIT();
+}
+
 void h_back() {
     view_update_state();
     view_idle_menu();
@@ -71,14 +79,14 @@ bolos_ux_params_t G_ux_params;
 
 UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
 UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
-//UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show Addr",});
+UX_FLOW_DEF_VALID(ux_idle_flow_2pk_step, pb, h_show_addr(0), { &C_icon_key, "Show Addr",});
 UX_FLOW_DEF_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
 UX_FLOW_DEF_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
 
 const ux_flow_step_t *const ux_idle_flow [] = {
   &ux_idle_flow_1_step,
-//  &ux_idle_flow_2pk_step,
+  &ux_idle_flow_2pk_step,
   &ux_idle_flow_4_step,
   &ux_idle_flow_5_step,
   FLOW_END_STEP,
@@ -112,7 +120,8 @@ const ux_flow_step_t *const ux_set_index_flow[] = {
   FLOW_END_STEP,
 };
 
-UX_STEP_NOCB(ux_addr_flow_1_step, bn, { viewdata.key, viewdata.value, });
+//UX_STEP_NOCB(ux_addr_flow_1_step, bn, { viewdata.key, viewdata.value, });
+UX_STEP_NOCB(ux_addr_flow_1_step, bnnn_paging, { .title = viewdata.key, .text = viewdata.value, });
 UX_FLOW_DEF_VALID(ux_addr_flow_2_step, pb, h_back(), { &C_icon_validate_14, "Back"});
 const ux_flow_step_t *const ux_addr_flow[] = {
   &ux_addr_flow_1_step,
@@ -121,7 +130,6 @@ const ux_flow_step_t *const ux_addr_flow[] = {
 };
 
 // TODO: ViewTX
-// TODO: ViewAddr
 #else
 
 #define COND_SCROLL_L2 0xF0
@@ -294,38 +302,6 @@ void view_sign_menu(void) {
     }
     ux_flow_init(0, ux_tx_flow, NULL);
 #endif
-}
-
-void view_update_state() {
-#ifdef TESTING_ENABLED
-    print_key("QRL");
-#else
-    print_key("QRL (TEST)")
-#endif
-
-    if (N_appdata.mode == APPMODE_NOT_INITIALIZED){
-        print_status("not ready");
-        return;
-    }
-
-    if (N_appdata.mode == APPMODE_KEYGEN_RUNNING) {
-        print_status("KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
-        return;
-    }
-
-    if (N_appdata.mode == APPMODE_READY) {
-        if (N_appdata.xmss_index >= 256) {
-            print_status("NO SIGS LEFT");
-            return;
-        }
-
-        if (N_appdata.xmss_index > 250) {
-            print_status("WARN! rem:%03d", 256 - N_appdata.xmss_index);
-            return;
-        }
-
-        print_status("READY rem:%03d", 256 - N_appdata.xmss_index);
-    }
 }
 
 void view_txinfo_show() {
@@ -556,7 +532,7 @@ void view_address_show() {
 
     // Prepare for display
     strcpy(viewdata.title, "VERIFY");
-    strcpy(viewdata.key, "Your QRL Address");
+    strcpy(viewdata.key, "Your Address");
     viewdata.value[0] = 'Q';
     ARRTOHEX(viewdata.value + 1, address);
 
@@ -573,6 +549,37 @@ void view_address_show() {
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
+void view_update_state() {
+#ifdef TESTING_ENABLED
+    print_key("QRL");
+#else
+    print_key("QRL (TEST)")
+#endif
+
+    if (N_appdata.mode == APPMODE_NOT_INITIALIZED){
+        print_status("not ready");
+        return;
+    }
+
+    if (N_appdata.mode == APPMODE_KEYGEN_RUNNING) {
+        print_status("KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
+        return;
+    }
+
+    if (N_appdata.mode == APPMODE_READY) {
+        if (N_appdata.xmss_index >= 256) {
+            print_status("NO SIGS LEFT");
+            return;
+        }
+
+        if (N_appdata.xmss_index > 250) {
+            print_status("WARN! rem:%03d", 256 - N_appdata.xmss_index);
+            return;
+        }
+
+        print_status("READY rem:%03d", 256 - N_appdata.xmss_index);
+    }
+}
 
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
