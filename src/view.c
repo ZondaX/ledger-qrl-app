@@ -36,26 +36,49 @@ void h_tree_init(unsigned int _) {
     view_idle_menu();
 }
 
+void h_setidx_accept() {
+    // Accept changing the index
+    app_setidx();
+    view_update_state();
+    view_idle_menu();
+    UX_WAIT();
+
+    set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+}
+
+void h_setidx_reject() {
+    // Cancel changing the index
+    view_update_state();
+    view_idle_menu();
+    UX_WAIT();
+
+    set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+}
+
+void h_back() {
+    view_update_state();
+    view_idle_menu();
+    UX_WAIT();
+}
+
 #if defined(TARGET_NANOX)
 
 #include "ux.h"
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 
-//UX_STEP_NOCB_INIT(ux_idle_flow_1_step, pbb, { view_update_state(); }, { &C_icon_app, viewdata.key, viewdata.value, });
-//UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
-UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, "KEY", "VALUE", });
-
+UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
 UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
-UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show Addr",});
-
+//UX_FLOW_DEF_NOCB(ux_idle_flow_2pk_step, pb, { &C_icon_key, "Show Addr",});
 UX_FLOW_DEF_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
 UX_FLOW_DEF_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
 
 const ux_flow_step_t *const ux_idle_flow [] = {
   &ux_idle_flow_1_step,
-  &ux_idle_flow_2pk_step,
+//  &ux_idle_flow_2pk_step,
   &ux_idle_flow_4_step,
   &ux_idle_flow_5_step,
   FLOW_END_STEP,
@@ -79,8 +102,25 @@ const ux_flow_step_t *const ux_tx_flow [] = {
   FLOW_END_STEP,
 };
 
+UX_STEP_NOCB(ux_set_index_flow_1_step, bn, { viewdata.key, viewdata.value, });
+UX_FLOW_DEF_VALID(ux_set_index_flow_2_step, pbb, h_setidx_accept(), { &C_icon_validate_14, "Accept", "Change" });
+UX_FLOW_DEF_VALID(ux_set_index_flow_3_step, pbb, h_setidx_reject(), { &C_icon_crossmark, "Reject", "Change" });
+const ux_flow_step_t *const ux_set_index_flow[] = {
+  &ux_set_index_flow_1_step,
+  &ux_set_index_flow_2_step,
+  &ux_set_index_flow_3_step,
+  FLOW_END_STEP,
+};
+
+UX_STEP_NOCB(ux_addr_flow_1_step, bn, { viewdata.key, viewdata.value, });
+UX_FLOW_DEF_VALID(ux_addr_flow_2_step, pb, h_back(), { &C_icon_validate_14, "Back"});
+const ux_flow_step_t *const ux_addr_flow[] = {
+  &ux_addr_flow_1_step,
+  &ux_addr_flow_2_step,
+  FLOW_END_STEP,
+};
+
 // TODO: ViewTX
-// TODO: Set index
 // TODO: ViewAddr
 #else
 
@@ -140,95 +180,61 @@ static const bagl_element_t view_address[] = {
         UI_LabelLineScrolling(UIID_LABELSCROLL, 6, 30, 112, UI_11PX, UI_WHITE, UI_BLACK, viewdata.value),
 };
 
-////////////////////////////////////////////////
-//------ Event handlers
-
-static unsigned int view_txinfo_button(unsigned int button_mask,
-                                       unsigned int button_mask_counter) {
+static unsigned int view_txinfo_button(unsigned int button_mask, unsigned int button_mask_counter) {
     switch (button_mask) {
-        // Press both left and right buttons to quit
-        case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
+            // Press both left and right buttons to quit
             view_sign_menu();
             break;
-        }
-
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT:
             // Press left to progress to the previous element
-        case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
             viewdata.idx--;
             view_txinfo_show();
             break;
-        }
 
+        case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
             // Press right to progress to the next element
-        case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
             viewdata.idx++;
             view_txinfo_show();
             break;
-        }
-
     }
     return 0;
 }
 
-static unsigned int view_setidx_button(unsigned int button_mask,
-                                       unsigned int button_mask_counter) {
+static unsigned int view_setidx_button(unsigned int button_mask, unsigned int button_mask_counter) {
     switch (button_mask) {
         // Press both left and right buttons to quit
-        case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
-            // DO NOTHING
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
             break;
-        }
-
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT:
             // Press left to progress to cancel
-        case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
-            // Cancel changing the index
-            view_update_state();
-
-            set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
-            io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+            h_setidx_reject();
             break;
-        }
-
+        case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
             // Press right to progress to accept
-        case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-            // Accept changing the index
-            app_setidx();
-            view_update_state();
-
-            set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
-            io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+            h_setidx_accept();
             break;
-        }
-
     }
     return 0;
 }
 
-static unsigned int view_address_button(unsigned int button_mask,
-                                       unsigned int button_mask_counter) {
+static unsigned int view_address_button(unsigned int button_mask, unsigned int button_mask_counter) {
     switch (button_mask) {
-        // Press both left and right buttons to quit
-        case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
+            // Press both left and right buttons to quit
             // DO NOTHING
             break;
-        }
-
+        case BUTTON_EVT_RELEASED | BUTTON_LEFT:
             // Press left to progress to cancel
-        case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
             // DO NOTHING
             break;
-        }
-
+        case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
             // Press right to progress to accept
-        case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
             // Go back to main menu
             view_update_state();
-
             set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
             io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
             break;
-        }
-
     }
     return 0;
 }
@@ -246,10 +252,10 @@ const bagl_element_t *view_prepro(const bagl_element_t *element) {
     return element;
 }
 
-////////////////////////////////////////////////
-////////////////////////////////////////////////
-
 #endif
+
+////////////////////////////////////////////////
+////////////////////////////////////////////////
 
 void io_seproxyhal_display(const bagl_element_t *element) {
     io_seproxyhal_display_default((bagl_element_t *) element);
@@ -291,35 +297,34 @@ void view_sign_menu(void) {
 }
 
 void view_update_state() {
-    #ifdef TESTING_ENABLED
-        print_key("QRL");
-    #else
-        print_key("QRL (TEST)")
-    #endif
+#ifdef TESTING_ENABLED
+    print_key("QRL");
+#else
+    print_key("QRL (TEST)")
+#endif
 
-    switch (N_appdata.mode) {
-        case APPMODE_NOT_INITIALIZED: {
-            print_status("not ready ");
-        }
-            break;
-        case APPMODE_KEYGEN_RUNNING: {
-            print_status("KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
-        }
-            break;
-        case APPMODE_READY: {
-            if (N_appdata.xmss_index >= 256) {
-                print_status( "NO SIGS LEFT");
-                break;
-            }
+    if (N_appdata.mode == APPMODE_NOT_INITIALIZED){
+        print_status("not ready");
+        return;
+    }
 
-            if (N_appdata.xmss_index > 250) {
-                print_status("WARN! rem:%03d", 256 - N_appdata.xmss_index);
-                break;
-            }
+    if (N_appdata.mode == APPMODE_KEYGEN_RUNNING) {
+        print_status("KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
+        return;
+    }
 
-            print_status("READY rem:%03d", 256 - N_appdata.xmss_index);
+    if (N_appdata.mode == APPMODE_READY) {
+        if (N_appdata.xmss_index >= 256) {
+            print_status("NO SIGS LEFT");
+            return;
         }
-            break;
+
+        if (N_appdata.xmss_index > 250) {
+            print_status("WARN! rem:%03d", 256 - N_appdata.xmss_index);
+            return;
+        }
+
+        print_status("READY rem:%03d", 256 - N_appdata.xmss_index);
     }
 }
 
@@ -327,8 +332,7 @@ void view_txinfo_show() {
 #define EXIT_VIEW() {view_sign_menu(); return;}
 #define PTR_DIST(p2, p1) ((char *)p2) - ((char *)p1)
 
-    uint8_t
-            elem_idx = 0;
+    uint8_t elem_idx = 0;
 
     switch (ctx.qrltx.type) {
 
@@ -505,11 +509,10 @@ void view_setidx_show() {
 #if defined(TARGET_NANOS)
     UX_DISPLAY(view_setidx, view_prepro);
 #elif defined(TARGET_NANOX)
-    // TODO: Complete
-    //    if(G_ux.stack_count == 0) {
-//        ux_stack_push();
-//    }
-//    ux_flow_init(0, ux_tx_flow, NULL);
+    if(G_ux.stack_count == 0) {
+        ux_stack_push();
+    }
+    ux_flow_init(0, ux_set_index_flow, NULL);
 #endif
 }
 
@@ -523,7 +526,7 @@ void view_address_show() {
 
     // Copy raw pk into pk
     unsigned char pk[64];
-    MEMCPY(pk, N_appdata.pk.raw,64);
+    MEMCPY(pk, (void *) N_appdata.pk.raw, 64);
 
     // Copy desc and pk to form extended_pubkey
     unsigned char extended_pubkey[67];
@@ -560,11 +563,10 @@ void view_address_show() {
 #if defined(TARGET_NANOS)
     UX_DISPLAY(view_address, view_prepro);
 #elif defined(TARGET_NANOX)
-    // TODO: Complete
-//    if(G_ux.stack_count == 0) {
-//        ux_stack_push();
-//    }
-//    ux_flow_init(0, ux_tx_flow, NULL);
+    if(G_ux.stack_count == 0) {
+        ux_stack_push();
+    }
+    ux_flow_init(0, ux_addr_flow, NULL);
 #endif
 }
 
