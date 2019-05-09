@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   (c) 2018 ZondaX GmbH
+*   (c) 2019 ZondaX GmbH
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -13,27 +13,25 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 ********************************************************************************/
-#pragma once
-#include "os.h"
-#include "xmss_types.h"
 
-#define APPMODE_NOT_INITIALIZED    0x00
-#define APPMODE_KEYGEN_RUNNING     0x01
-#define APPMODE_READY              0x02
+#include <stdint.h>
+#include <stddef.h>
+#include "bech32.h"
+#include "segwit_addr.h"
+#include "bittools.h"
 
-#pragma pack(push, 1)
-typedef union {
-  struct {
-    uint8_t mode;
-    uint16_t xmss_index;
+void bech32EncodeFromBytes(char *output,
+                           const char *hrp,
+                           const uint8_t *data,
+                           size_t data_len) {
+    output[0] = 0;
+    if (data_len > 128) {
+        return;
+    }
 
-    ////
-    xmss_pk_t pk;
-  };
-  uint8_t raw[3];
+    uint8_t tmp_data[128];
+    size_t tmp_size = 0;
 
-} appstorage_t;
-#pragma pack(pop)
-
-extern appstorage_t NV_CONST N_appdata_impl __attribute__ ((aligned(64)));
-#define N_appdata (*(NV_VOL appstorage_t *)PIC(&N_appdata_impl))
+    convert_bits(tmp_data, &tmp_size, 5, data, data_len, 8, 0);
+    bech32_encode(output, hrp, tmp_data, tmp_size);
+}

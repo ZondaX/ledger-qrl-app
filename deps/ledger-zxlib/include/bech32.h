@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   (c) 2018 ZondaX GmbH
+*   (c) 2019 ZondaX GmbH
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -14,26 +14,19 @@
 *  limitations under the License.
 ********************************************************************************/
 #pragma once
-#include "os.h"
-#include "xmss_types.h"
 
-#define APPMODE_NOT_INITIALIZED    0x00
-#define APPMODE_KEYGEN_RUNNING     0x01
-#define APPMODE_READY              0x02
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#pragma pack(push, 1)
-typedef union {
-  struct {
-    uint8_t mode;
-    uint16_t xmss_index;
+// the following function encodes directly from bytes
+// it will internally convert from 8 to 5 bits and return a
+// zero-terminated string in output
+void bech32EncodeFromBytes(char *output,
+                           const char *hrp,
+                           const uint8_t *data,
+                           size_t data_len);
 
-    ////
-    xmss_pk_t pk;
-  };
-  uint8_t raw[3];
-
-} appstorage_t;
-#pragma pack(pop)
-
-extern appstorage_t NV_CONST N_appdata_impl __attribute__ ((aligned(64)));
-#define N_appdata (*(NV_VOL appstorage_t *)PIC(&N_appdata_impl))
+#ifdef __cplusplus
+}
+#endif
