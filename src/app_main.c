@@ -464,15 +464,18 @@ void app_sign_next(volatile uint32_t *tx, uint32_t rx) {
 
     if (ctx.xmss_sig_ctx.sig_chunk_idx == 10) {
         xmss_sign_incremental_last(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_DATA.sk, index);
+        view_update_state();
     } else {
         xmss_sign_incremental(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_DATA.sk, index);
+        print_status("signing %d0%%", ctx.xmss_sig_ctx.sig_chunk_idx);
     }
 
     if (ctx.xmss_sig_ctx.written > 0) {
         *tx = ctx.xmss_sig_ctx.written;
     }
 
-    view_update_state();
+    view_idle_show();
+    UX_WAIT();
 }
 
 void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
@@ -537,7 +540,7 @@ void app_init() {
 
     // Initialize UI
     view_update_state();
-    view_idle_menu();
+    view_idle_show();
 }
 
 void app_main() {
@@ -598,7 +601,7 @@ void app_main() {
 
                         parse_unsigned_message(&tx, rx);
 
-                        handler_view_tx(0);
+                        view_sign_show();
                         flags |= IO_ASYNCH_REPLY;
                         break;
                     }
@@ -609,7 +612,6 @@ void app_main() {
                         }
 
                         app_sign_next(&tx, rx);
-                        view_update_state();
                         THROW(APDU_CODE_OK);
                         break;
                     }
@@ -632,7 +634,8 @@ void app_main() {
 
                         parse_view_address(&tx, rx);
                         view_address_show();
-                        flags |= IO_ASYNCH_REPLY;
+                        UX_WAIT();
+                        THROW(APDU_CODE_OK);
                         break;
                     }
 

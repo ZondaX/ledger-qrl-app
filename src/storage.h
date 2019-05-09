@@ -35,6 +35,5 @@ typedef union {
 } appstorage_t;
 #pragma pack(pop)
 
-extern appstorage_t const N_appdata_impl __attribute__ ((aligned(64)));
+extern appstorage_t NV_CONST N_appdata_impl __attribute__ ((aligned(64)));
 #define N_appdata (*(NV_VOL appstorage_t *)PIC(&N_appdata_impl))
-

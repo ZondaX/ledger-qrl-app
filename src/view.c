@@ -25,22 +25,27 @@
 
 #include "actions.h"
 
+#define REVIEW_DATA_AVAILABLE 1
+#define REVIEW_NO_MORE_DATA   0
+
 view_t viewdata;
 
 #define ARRTOHEX(X, Y) array_to_hexstr(X, Y, sizeof(Y))
 #define AMOUNT_TO_STR(OUTPUT, AMOUNT, DECIMALS) fpuint64_to_str(OUTPUT, uint64_from_BEarray(AMOUNT), DECIMALS)
 
+void view_sign_internal_show();
+
 void h_tree_init(unsigned int _) {
     actions_tree_init();
     view_update_state();
-    view_idle_menu();
+    view_idle_show();
 }
 
 void h_setidx_accept() {
     // Accept changing the index
     app_setidx();
     view_update_state();
-    view_idle_menu();
+    view_idle_show();
     UX_WAIT();
 
     set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
@@ -50,25 +55,50 @@ void h_setidx_accept() {
 void h_setidx_reject() {
     // Cancel changing the index
     view_update_state();
-    view_idle_menu();
+    view_idle_show();
     UX_WAIT();
 
     set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
     io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
 }
 
-void h_show_addr() {
-#if defined(TARGET_NANOX)
-    ux_layout_bnnn_paging_reset();
-#endif
+void h_show_addr(unsigned int _) {
+    UNUSED(_);
     view_address_show();
     UX_WAIT();
 }
 
 void h_back() {
     view_update_state();
-    view_idle_menu();
+    view_idle_show();
     UX_WAIT();
+}
+
+void h_review(unsigned int _) {
+    UNUSED(_);
+    viewdata.idx = 0;
+    view_review_show();
+}
+
+void h_sign_accept(unsigned int _) {
+    UNUSED(_);
+    app_sign();
+    view_update_state();
+    view_idle_show();
+    UX_WAIT();
+
+    set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+}
+
+void h_sign_reject(unsigned int _) {
+    UNUSED(_);
+    view_update_state();
+    view_idle_show();
+    UX_WAIT();
+
+    set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
+    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
 }
 
 #if defined(TARGET_NANOX)
@@ -100,16 +130,6 @@ const ux_flow_step_t *const ux_idle_init_flow [] = {
   FLOW_END_STEP,
 };
 
-UX_FLOW_DEF_VALID(ux_tx_flow_1_step, pbb, handler_view_tx(0), { &C_icon_eye, "Review", "Transaction" });
-UX_FLOW_DEF_VALID(ux_tx_flow_2_step, pbb, handler_sign_tx(0), { &C_icon_validate_14, "Sign", "Transaction" });
-UX_FLOW_DEF_VALID(ux_tx_flow_3_step, pbb, handler_reject_tx(0), { &C_icon_crossmark, "Reject", "Transaction" });
-const ux_flow_step_t *const ux_tx_flow [] = {
-  &ux_tx_flow_1_step,
-  &ux_tx_flow_2_step,
-  &ux_tx_flow_3_step,
-  FLOW_END_STEP,
-};
-
 UX_STEP_NOCB(ux_set_index_flow_1_step, bn, { viewdata.key, viewdata.value, });
 UX_FLOW_DEF_VALID(ux_set_index_flow_2_step, pbb, h_setidx_accept(), { &C_icon_validate_14, "Accept", "Change" });
 UX_FLOW_DEF_VALID(ux_set_index_flow_3_step, pbb, h_setidx_reject(), { &C_icon_crossmark, "Reject", "Change" });
@@ -120,7 +140,6 @@ const ux_flow_step_t *const ux_set_index_flow[] = {
   FLOW_END_STEP,
 };
 
-//UX_STEP_NOCB(ux_addr_flow_1_step, bn, { viewdata.key, viewdata.value, });
 UX_STEP_NOCB(ux_addr_flow_1_step, bnnn_paging, { .title = viewdata.key, .text = viewdata.value, });
 UX_FLOW_DEF_VALID(ux_addr_flow_2_step, pb, h_back(), { &C_icon_validate_14, "Back"});
 const ux_flow_step_t *const ux_addr_flow[] = {
@@ -129,10 +148,81 @@ const ux_flow_step_t *const ux_addr_flow[] = {
   FLOW_END_STEP,
 };
 
-// TODO: ViewTX
-#else
+typedef struct
+{
+unsigned char inside : 1;
+unsigned char no_more_data : 1;
+} review_state_t;
 
-#define COND_SCROLL_L2 0xF0
+review_state_t review_state;
+
+void h_review_start()
+{
+    if (review_state.inside) {
+    // coming from right
+        viewdata.idx--;
+        if (viewdata.idx<0) {
+            // exit to the left
+            review_state.inside = 0;
+            ux_flow_prev();
+            return;
+        }
+    } else {
+    // coming from left
+        viewdata.idx = 0;
+    }
+
+    view_update_review();
+    ux_flow_next();
+}
+
+void h_review_data()
+{
+    review_state.inside = 1;
+}
+
+void h_review_end()
+{
+    if (review_state.inside) {
+    // coming from left
+        viewdata.idx++;
+        if (view_update_review()== REVIEW_NO_MORE_DATA){
+            review_state.inside = 0;
+            ux_flow_next();
+            return;
+        }
+        ux_layout_bnnn_paging_reset();
+    } else {
+    // coming from right
+        viewdata.idx--;
+        view_update_review();
+    }
+
+    // move to prev flow but trick paging to show first page
+    CUR_FLOW.prev_index = CUR_FLOW.index-2;
+    CUR_FLOW.index--;
+    ux_flow_relayout();
+}
+
+UX_STEP_NOCB(ux_sign_flow_1_step, pbb, { &C_icon_eye, "Review", "Transaction" });
+
+UX_STEP_INIT(ux_sign_flow_2_start_step, NULL, NULL, { h_review_start(); });
+UX_STEP_NOCB_INIT(ux_sign_flow_2_step, bnnn_paging, { h_review_data(); }, { .title = viewdata.key, .text = viewdata.value, });
+UX_STEP_INIT(ux_sign_flow_2_end_step, NULL, NULL, { h_review_end(); });
+
+UX_FLOW_DEF_VALID(ux_sign_flow_3_step, pbb, h_sign_accept(0), { &C_icon_validate_14, "Sign", "Transaction" });
+UX_FLOW_DEF_VALID(ux_sign_flow_4_step, pbb, h_sign_reject(0), { &C_icon_crossmark, "Reject", "Transaction" });
+const ux_flow_step_t *const ux_sign_flow[] = {
+  &ux_sign_flow_1_step,
+  &ux_sign_flow_2_start_step,
+  &ux_sign_flow_2_step,
+  &ux_sign_flow_2_end_step,
+  &ux_sign_flow_3_step,
+  &ux_sign_flow_4_step,
+  FLOW_END_STEP,
+};
+
+#else
 
 #define UIID_STATUS        UIID_LABEL+1
 #define UIID_TREE_INIT     UIID_LABEL+3
@@ -143,7 +233,7 @@ ux_state_t ux;
 
 const ux_menu_entry_t menu_idle[] = {
         {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 32, 11},
-        {NULL, NULL, UIID_TREE_PK, NULL, "Show Addr", NULL, 0, 0},
+        {NULL, h_show_addr, UIID_TREE_PK, NULL, "Show Addr", NULL, 0, 0},
         {NULL, NULL, 0, NULL, "v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
         UX_MENU_END
@@ -158,13 +248,13 @@ const ux_menu_entry_t menu_idle_init[] = {
 };
 
 const ux_menu_entry_t menu_sign[] = {
-        {NULL, handler_view_tx, 0, NULL, "View transaction", NULL, 0, 0},
-        {NULL, handler_sign_tx, 0, NULL, "Sign transaction", NULL, 0, 0},
-        {NULL, handler_reject_tx, 0, &C_icon_back, "Reject", NULL, 60, 40},
+        {NULL, h_review, 0, NULL, "View transaction", NULL, 0, 0},
+        {NULL, h_sign_accept, 0, NULL, "Sign transaction", NULL, 0, 0},
+        {NULL, h_sign_reject, 0, &C_icon_back, "Reject", NULL, 60, 40},
         UX_MENU_END
 };
 
-static const bagl_element_t view_txinfo[] = {
+static const bagl_element_t view_review[] = {
         UI_BACKGROUND_LEFT_RIGHT_ICONS,
         UI_LabelLine(UIID_LABEL + 0, 0, 8, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.title),
         UI_LabelLine(UIID_LABEL + 0, 0, 19, UI_SCREEN_WIDTH, UI_11PX, UI_WHITE, UI_BLACK, viewdata.key),
@@ -188,22 +278,32 @@ static const bagl_element_t view_address[] = {
         UI_LabelLineScrolling(UIID_LABELSCROLL, 6, 30, 112, UI_11PX, UI_WHITE, UI_BLACK, viewdata.value),
 };
 
-static unsigned int view_txinfo_button(unsigned int button_mask, unsigned int button_mask_counter) {
+static unsigned int view_review_button(unsigned int button_mask, unsigned int button_mask_counter) {
     switch (button_mask) {
         case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
             // Press both left and right buttons to quit
-            view_sign_menu();
+            view_sign_internal_show();
             break;
         case BUTTON_EVT_RELEASED | BUTTON_LEFT:
             // Press left to progress to the previous element
             viewdata.idx--;
-            view_txinfo_show();
+            if (view_update_review() == REVIEW_NO_MORE_DATA) {
+                view_sign_internal_show();
+            } else {
+                view_review_show();
+            }
+            UX_WAIT();
             break;
 
         case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
             // Press right to progress to the next element
             viewdata.idx++;
-            view_txinfo_show();
+            if (view_update_review() == REVIEW_NO_MORE_DATA) {
+                view_sign_internal_show();
+            } else {
+                view_review_show();
+            }
+            UX_WAIT();
             break;
     }
     return 0;
@@ -240,8 +340,8 @@ static unsigned int view_address_button(unsigned int button_mask, unsigned int b
             // Press right to progress to accept
             // Go back to main menu
             view_update_state();
-            set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
-            io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+            view_idle_show();
+            UX_WAIT();
             break;
     }
     return 0;
@@ -273,7 +373,7 @@ void view_init(void) {
     UX_INIT();
 }
 
-void view_idle_menu(void) {
+void view_idle_show(void) {
 
 #if defined(TARGET_NANOS)
     if (N_appdata.mode != APPMODE_READY) {
@@ -293,187 +393,33 @@ void view_idle_menu(void) {
 #endif
 }
 
-void view_sign_menu(void) {
+void view_sign_show() {
 #if defined(TARGET_NANOS)
-    UX_MENU_DISPLAY(0, menu_sign, NULL);
+    viewdata.idx = 0;
+    view_update_review();
+    view_review_show();
 #elif defined(TARGET_NANOX)
-    if(G_ux.stack_count == 0) {
-        ux_stack_push();
-    }
-    ux_flow_init(0, ux_tx_flow, NULL);
+    view_sign_internal_show();
 #endif
 }
 
-void view_txinfo_show() {
-#define EXIT_VIEW() {view_sign_menu(); return;}
-#define PTR_DIST(p2, p1) ((char *)p2) - ((char *)p1)
-
-    uint8_t elem_idx = 0;
-
-    switch (ctx.qrltx.type) {
-
-        case QRLTX_TX: {
-            strcpy(viewdata.title, "TRANSFER");
-
-            switch (viewdata.idx) {
-                case 0: {
-                    strcpy(viewdata.key, "Source Addr");
-                    viewdata.value[0] = 'Q';
-                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.tx.master.address);
-                    break;
-                }
-                case 1: {
-                    strcpy(viewdata.key, "Fee (QRL)");
-
-                    AMOUNT_TO_STR(viewdata.value,
-                                  ctx.qrltx.tx.master.amount,
-                                  QUANTA_DECIMALS);
-                    break;
-                }
-                default: {
-                    elem_idx = (viewdata.idx - 2) >> 1;
-                    if (elem_idx >= QRLTX_SUBITEM_MAX) EXIT_VIEW();
-                    if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
-
-                    qrltx_addr_block *dst = &ctx.qrltx.tx.dst[elem_idx];
-
-                    if (viewdata.idx % 2 == 0) {
-                        snprintf(viewdata.key, sizeof(viewdata.key), "Dst %d", elem_idx);
-                        viewdata.value[0] = 'Q';
-                        ARRTOHEX(viewdata.value + 1, dst->address);
-                    } else {
-                        snprintf(viewdata.key, sizeof(viewdata.key), "Amount %d (QRL)", elem_idx);
-                        AMOUNT_TO_STR(viewdata.value, dst->amount, QUANTA_DECIMALS);
-                    }
-                    break;
-                }
-            }
-            break;
-        }
-#ifdef TXTOKEN_ENABLED
-        case QRLTX_TXTOKEN: {
-            strcpy(viewdata.title, "TRANSFER TOKEN");
-
-            switch (viewdata.idx) {
-                case 0: {
-                    strcpy(viewdata.key, "Source Addr");
-                    viewdata.value[0] = 'Q';
-                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.txtoken.master.address);
-                    break;
-                }
-                case 1: {
-                    strcpy(viewdata.key, "Fee (QRL)");
-                    AMOUNT_TO_STR(viewdata.value,
-                                  ctx.qrltx.txtoken.master.amount,
-                                  QUANTA_DECIMALS);
-                    break;
-                }
-                case 2: {
-                    strcpy(viewdata.key, "Token Hash");
-                    ARRTOHEX(viewdata.value, ctx.qrltx.txtoken.token_hash);
-                    break;
-                }
-                default: {
-                    elem_idx = (viewdata.idx - 3) >> 2;
-                    if (elem_idx >= QRLTX_SUBITEM_MAX) EXIT_VIEW();
-                    if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
-
-                    qrltx_addr_block *dst = &ctx.qrltx.txtoken.dst[elem_idx];
-
-                    if (view_idx % 2 == 0) {
-                        snprintf(viewdata.key, sizeof(viewdata.key), "Dst %d", elem_idx);
-                        viewdata.value[0] = 'Q';
-                        ARRTOHEX(viewdata.value + 1, dst->address);
-                    } else {
-                        snprintf(viewdata.key, sizeof(viewdata.key), "Amount %d (QRL)", elem_idx);
-                        // TODO: Decide what to do with token decimals
-                        AMOUNT_TO_STR(viewdata.value, dst->amount, 0);
-                    }
-                    break;
-                }
-            }
-            break;
-        }
-#endif
-#ifdef SLAVE_ENABLED
-        case QRLTX_SLAVE: {
-            strcpy(view_title, "CREATE SLAVE");
-
-            switch (view_idx) {
-                case 0: {
-                    strcpy(viewdata.key, "Master Addr");
-                    viewdata.value[0] = 'Q';
-                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.slave.master.address);
-                    break;
-                }
-                case 1: {
-                    strcpy(viewdata.key, "Fee (QRL)");
-                    AMOUNT_TO_STR(viewdata.value,
-                                  ctx.qrltx.slave.master.amount,
-                                  QUANTA_DECIMALS);
-                    break;
-                }
-                default: {
-                    elem_idx = (view_idx - 2) >> 1;
-                    if (elem_idx >= QRLTX_SUBITEM_MAX) EXIT_VIEW();
-                    if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
-
-                    if (view_idx % 2 == 0) {
-                        snprintf(viewdata.key, sizeof(viewdata.key), "Slave PK %d", elem_idx);
-                        ARRTOHEX(viewdata.value, ctx.qrltx.slave.slaves[elem_idx].pk);
-                    } else {
-                        snprintf(viewdata.key, sizeof(viewdata.key), "Access Type %d", elem_idx);
-                        ARRTOHEX(viewdata.value, ctx.qrltx.slave.slaves[elem_idx].access);
-                    }
-                    break;
-                }
-            }
-            break;
-        }
-#endif
-        case QRLTX_MESSAGE: {
-            strcpy(viewdata.title, "MESSAGE");
-
-            switch (viewdata.idx) {
-                case 0: {
-                    strcpy(viewdata.key, "Source Addr");
-                    viewdata.value[0] = 'Q';
-                    ARRTOHEX(viewdata.value + 1,
-                             ctx.qrltx.msg.master.address);
-                    break;
-                }
-                case 1: {
-                    strcpy(viewdata.key, "Fee (QRL)");
-
-                    AMOUNT_TO_STR(viewdata.value,
-                                  ctx.qrltx.msg.master.amount,
-                                  QUANTA_DECIMALS);
-                    break;
-                }
-                case 2: {
-                    strcpy(viewdata.key, "Message");
-                    array_to_hexstr(viewdata.value,
-                                    ctx.qrltx.msg.message,
-                                    ctx.qrltx.subitem_count);
-                    break;
-                }
-                default: {
-                    EXIT_VIEW();
-                }
-            }
-            break;
-        }
-        default: EXIT_VIEW()
-    }
-
+void view_sign_internal_show(void) {
 #if defined(TARGET_NANOS)
-    UX_DISPLAY(view_txinfo, view_prepro);
+    UX_MENU_DISPLAY(0, menu_sign, NULL);
 #elif defined(TARGET_NANOX)
-    // TODO: Complete
-//    if(G_ux.stack_count == 0) {
-//        ux_stack_push();
-//    }
-//    ux_flow_init(0, ux_tx_flow, NULL);
+    viewdata.idx = -1;
+    if(G_ux.stack_count == 0) {
+        ux_stack_push();
+    }
+    review_state.inside = 0;
+    review_state.no_more_data = 0;
+    ux_flow_init(0, ux_sign_flow, NULL);
+#endif
+}
+
+void view_review_show(void) {
+#if defined(TARGET_NANOS)
+    UX_DISPLAY(view_review, view_prepro);
 #endif
 }
 
@@ -539,6 +485,7 @@ void view_address_show() {
 #if defined(TARGET_NANOS)
     UX_DISPLAY(view_address, view_prepro);
 #elif defined(TARGET_NANOX)
+    ux_layout_bnnn_paging_reset();
     if(G_ux.stack_count == 0) {
         ux_stack_push();
     }
@@ -551,9 +498,9 @@ void view_address_show() {
 
 void view_update_state() {
 #ifdef TESTING_ENABLED
-    print_key("QRL");
-#else
     print_key("QRL (TEST)")
+#else
+    print_key("QRL");
 #endif
 
     if (N_appdata.mode == APPMODE_NOT_INITIALIZED){
@@ -581,31 +528,183 @@ void view_update_state() {
     }
 }
 
-////////////////////////////////////////////////
-////////////////////////////////////////////////
+// returns 1 while there is still data to show
+int8_t view_update_review() {
+#define PTR_DIST(p2, p1) ((char *)p2) - ((char *)p1)
 
-void handler_view_tx(unsigned int _) {
-    UNUSED(_);
-    // TODO: Create a better view
-    viewdata.idx = 0;
-    view_txinfo_show();
-}
+    uint8_t elem_idx = 0;
 
-void handler_sign_tx(unsigned int _) {
-    UNUSED(_);
-    app_sign();
+    switch (ctx.qrltx.type) {
 
-    view_update_state();
+        case QRLTX_TX: {
+            strcpy(viewdata.title, "TRANSFER");
 
-    set_code(G_io_apdu_buffer, 0, APDU_CODE_OK);
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-}
+            switch (viewdata.idx) {
+                case 0: {
+                    strcpy(viewdata.key, "Source Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.tx.master.address);
+                    break;
+                }
+                case 1: {
+                    strcpy(viewdata.key, "Fee (QRL)");
+                    AMOUNT_TO_STR(viewdata.value,
+                                  ctx.qrltx.tx.master.amount,
+                                  QUANTA_DECIMALS);
+                    break;
+                }
+                default: {
+                    elem_idx = (viewdata.idx - 2) >> 1;
+                    if (elem_idx >= QRLTX_SUBITEM_MAX) return REVIEW_NO_MORE_DATA;
+                    if (elem_idx >= ctx.qrltx.subitem_count) return REVIEW_NO_MORE_DATA;
 
-void handler_reject_tx(unsigned int _) {
-    UNUSED(_);
+                    qrltx_addr_block *dst = &ctx.qrltx.tx.dst[elem_idx];
 
-    view_update_state();
+                    if (viewdata.idx % 2 == 0) {
+                        print_key("Dst %d", elem_idx);
+                        viewdata.value[0] = 'Q';
+                        ARRTOHEX(viewdata.value + 1, dst->address);
+                    } else {
+                        print_key("Amount %d (QRL)", elem_idx);
+                        AMOUNT_TO_STR(viewdata.value, dst->amount, QUANTA_DECIMALS);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+#ifdef TXTOKEN_ENABLED
+        case QRLTX_TXTOKEN: {
+            strcpy(viewdata.title, "TRANSFER TOKEN");
 
-    set_code(G_io_apdu_buffer, 0, APDU_CODE_COMMAND_NOT_ALLOWED);
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+            switch (viewdata.idx) {
+                case 0: {
+                    strcpy(viewdata.key, "Source Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.txtoken.master.address);
+                    break;
+                }
+                case 1: {
+                    strcpy(viewdata.key, "Fee (QRL)");
+                    AMOUNT_TO_STR(viewdata.value,
+                                  ctx.qrltx.txtoken.master.amount,
+                                  QUANTA_DECIMALS);
+                    break;
+                }
+                case 2: {
+                    strcpy(viewdata.key, "Token Hash");
+                    ARRTOHEX(viewdata.value, ctx.qrltx.txtoken.token_hash);
+                    break;
+                }
+                default: {
+                    elem_idx = (viewdata.idx - 3) >> 2;
+                    if (elem_idx >= QRLTX_SUBITEM_MAX) return REVIEW_NO_MORE_DATA;
+                    if (elem_idx >= ctx.qrltx.subitem_count) return REVIEW_NO_MORE_DATA;
+
+                    qrltx_addr_block *dst = &ctx.qrltx.txtoken.dst[elem_idx];
+
+                    if (view_idx % 2 == 0) {
+                        print_key("Dst %d", elem_idx);
+                        viewdata.value[0] = 'Q';
+                        ARRTOHEX(viewdata.value + 1, dst->address);
+                    } else {
+                        print_key("Amount %d (QRL)", elem_idx);
+                        // TODO: Decide what to do with token decimals
+                        AMOUNT_TO_STR(viewdata.value, dst->amount, 0);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+#endif
+#ifdef SLAVE_ENABLED
+        case QRLTX_SLAVE: {
+            strcpy(viewdata.title, "CREATE SLAVE");
+
+            switch (view_idx) {
+                case 0: {
+                    strcpy(viewdata.key, "Master Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1, ctx.qrltx.slave.master.address);
+                    break;
+                }
+                case 1: {
+                    strcpy(viewdata.key, "Fee (QRL)");
+                    AMOUNT_TO_STR(viewdata.value,
+                                  ctx.qrltx.slave.master.amount,
+                                  QUANTA_DECIMALS);
+                    break;
+                }
+                default: {
+                    elem_idx = (view_idx - 2) >> 1;
+                    if (elem_idx >= QRLTX_SUBITEM_MAX) EXIT_VIEW();
+                    if (elem_idx >= ctx.qrltx.subitem_count) EXIT_VIEW();
+
+                    if (view_idx % 2 == 0) {
+                        print_key("Slave PK %d", elem_idx);
+                        ARRTOHEX(viewdata.value, ctx.qrltx.slave.slaves[elem_idx].pk);
+                    } else {
+                        print_key("Access Type %d", elem_idx);
+                        ARRTOHEX(viewdata.value, ctx.qrltx.slave.slaves[elem_idx].access);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+#endif
+        case QRLTX_MESSAGE: {
+            strcpy(viewdata.title, "MESSAGE");
+
+            switch (viewdata.idx) {
+                case 0: {
+                    strcpy(viewdata.key, "Source Addr");
+                    viewdata.value[0] = 'Q';
+                    ARRTOHEX(viewdata.value + 1,
+                             ctx.qrltx.msg.master.address);
+                    break;
+                }
+                case 1: {
+                    strcpy(viewdata.key, "Fee (QRL)");
+                    AMOUNT_TO_STR(viewdata.value,
+                                  ctx.qrltx.msg.master.amount,
+                                  QUANTA_DECIMALS);
+                    break;
+                }
+                case 2: {
+                    uint8_t numchars = ctx.qrltx.subitem_count;
+
+                    if (numchars <= MAX_CHARS_HEXMESSAGE) {
+                        print_key("Message");
+                    } else {
+                        numchars = MAX_CHARS_HEXMESSAGE;
+                        print_key("Message [1/2]");
+                    }
+                    array_to_hexstr(viewdata.value,
+                                    ctx.qrltx.msg.message,
+                                    numchars);
+                    break;
+                }
+                case 3: {
+                    if (ctx.qrltx.subitem_count <= MAX_CHARS_HEXMESSAGE) {
+                        return REVIEW_NO_MORE_DATA;
+                    }
+                    print_key("Message [2/2]");
+                    array_to_hexstr(viewdata.value,
+                                    ctx.qrltx.msg.message + MAX_CHARS_HEXMESSAGE,
+                                    ctx.qrltx.subitem_count - MAX_CHARS_HEXMESSAGE);
+                    break;
+                }
+                default: {
+                    return REVIEW_NO_MORE_DATA;
+                }
+            }
+            break;
+        }
+        default:
+            return REVIEW_NO_MORE_DATA;
+    }
+
+    return REVIEW_DATA_AVAILABLE;
 }

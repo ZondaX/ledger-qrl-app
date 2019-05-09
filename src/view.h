@@ -19,8 +19,15 @@
 #include "os.h"
 #include "cx.h"
 
+#if defined(TARGET_NANOX)
+#define MAX_CHARS_PER_KEY_LINE      64
+#define MAX_CHARS_PER_VALUE_LINE    256
+#define MAX_CHARS_HEXMESSAGE        100
+#else
 #define MAX_CHARS_PER_KEY_LINE      32
 #define MAX_CHARS_PER_VALUE_LINE    128
+#define MAX_CHARS_HEXMESSAGE        40
+#endif
 
 typedef struct {
     char title[16];
@@ -32,18 +39,19 @@ typedef struct {
 extern view_t viewdata;
 
 void view_init(void);
-void view_idle_menu(void);
-void view_sign_menu(void);
-void view_txinfo_show();
+void view_idle_show(void);
+void view_sign_show();
+void view_review_show();
 void view_setidx_show();
 void view_address_show();
 
-void handler_view_tx(unsigned int unused);
-void handler_sign_tx(unsigned int unused);
-void handler_reject_tx(unsigned int unused);
-void handler_init_device(unsigned int);
-void handler_menu_idle_select(unsigned int);
-
 #define print_key(...) snprintf(viewdata.key, sizeof(viewdata.key), __VA_ARGS__);
 #define print_status(...) snprintf(viewdata.value, sizeof(viewdata.value), __VA_ARGS__);
+
+#if defined(TARGET_NANOX)
+#define CUR_FLOW G_ux.flow_stack[G_ux.stack_count-1]
+#endif
+
 void view_update_state();
+int8_t view_update_review();
+

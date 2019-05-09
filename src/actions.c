@@ -48,7 +48,7 @@ char actions_tree_init_step() {
 
     if (N_appdata.xmss_index < 256) {
         print_status("keygen: %03d/256", N_appdata.xmss_index + 1);
-        view_idle_menu();
+        view_idle_show();
         UX_WAIT();
 
 #ifdef TESTING_ENABLED
@@ -68,7 +68,7 @@ char actions_tree_init_step() {
 
     } else {
         print_status("keygen: root");
-        view_idle_menu();
+        view_idle_show();
         UX_WAIT();
 
         xmss_pk_t pk;
