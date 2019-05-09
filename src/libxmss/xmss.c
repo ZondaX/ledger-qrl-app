@@ -125,7 +125,7 @@ void xmss_get_seed_i(uint8_t *seed, NV_VOL const xmss_sk_t *sk, uint16_t idx) {
 void xmss_gen_keys_1_get_seeds(NV_VOL NV_CONST xmss_sk_t *sk,
                                const uint8_t *sk_seed) {
     SET_NV(&(sk->index), uint32_t, 0);
-    // xmss_randombits(sk->seeds.raw, sk_seed);
+    xmss_randombits(sk->seeds.raw, sk_seed);
 }
 
 void xmss_gen_keys_2_get_nodes(NV_VOL NV_CONST uint8_t *wots_buffer,

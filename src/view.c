@@ -108,45 +108,47 @@ ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 
 UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
-UX_FLOW_DEF_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
-UX_FLOW_DEF_VALID(ux_idle_flow_2pk_step, pb, h_show_addr(0), { &C_icon_key, "Show Addr",});
-UX_FLOW_DEF_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
-UX_FLOW_DEF_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
+UX_STEP_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
+UX_STEP_VALID(ux_idle_flow_2pk_step, pb, h_show_addr(0), { &C_icon_key, "Show Addr",});
+UX_STEP_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
+UX_STEP_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
 
-const ux_flow_step_t *const ux_idle_flow [] = {
-  &ux_idle_flow_1_step,
-  &ux_idle_flow_2pk_step,
-  &ux_idle_flow_4_step,
-  &ux_idle_flow_5_step,
-  FLOW_END_STEP,
-};
+UX_FLOW(
+    ux_idle_flow,
+    &ux_idle_flow_1_step,
+    &ux_idle_flow_2pk_step,
+    &ux_idle_flow_4_step,
+    &ux_idle_flow_5_step
+);
 
-const ux_flow_step_t *const ux_idle_init_flow [] = {
-  &ux_idle_flow_1_step,
-  &ux_idle_flow_2init_step,
-  &ux_idle_flow_4_step,
-  &ux_idle_flow_5_step,
-  FLOW_END_STEP,
-};
+UX_FLOW(
+    ux_idle_init_flow,
+    &ux_idle_flow_1_step,
+    &ux_idle_flow_2init_step,
+    &ux_idle_flow_4_step,
+    &ux_idle_flow_5_step
+);
 
 UX_STEP_NOCB(ux_set_index_flow_1_step, bn, { viewdata.key, viewdata.value, });
-UX_FLOW_DEF_VALID(ux_set_index_flow_2_step, pbb, h_setidx_accept(), { &C_icon_validate_14, "Accept", "Change" });
-UX_FLOW_DEF_VALID(ux_set_index_flow_3_step, pbb, h_setidx_reject(), { &C_icon_crossmark, "Reject", "Change" });
-const ux_flow_step_t *const ux_set_index_flow[] = {
-  &ux_set_index_flow_1_step,
-  &ux_set_index_flow_2_step,
-  &ux_set_index_flow_3_step,
-  FLOW_END_STEP,
-};
+UX_STEP_VALID(ux_set_index_flow_2_step, pbb, h_setidx_accept(), { &C_icon_validate_14, "Accept", "Change" });
+UX_STEP_VALID(ux_set_index_flow_3_step, pbb, h_setidx_reject(), { &C_icon_crossmark, "Reject", "Change" });
+
+UX_FLOW(
+    ux_set_index_flow,
+    &ux_set_index_flow_1_step,
+    &ux_set_index_flow_2_step,
+    &ux_set_index_flow_3_step
+);
 
 UX_STEP_NOCB(ux_addr_flow_1_step, bnnn_paging, { .title = viewdata.key, .text = viewdata.value, });
-UX_FLOW_DEF_VALID(ux_addr_flow_2_step, pb, h_back(), { &C_icon_validate_14, "Back"});
-const ux_flow_step_t *const ux_addr_flow[] = {
-  &ux_addr_flow_1_step,
-  &ux_addr_flow_2_step,
-  FLOW_END_STEP,
-};
+UX_STEP_VALID(ux_addr_flow_2_step, pb, h_back(), { &C_icon_validate_14, "Back"});
+
+UX_FLOW(
+    ux_addr_flow,
+    &ux_addr_flow_1_step,
+    &ux_addr_flow_2_step
+);
 
 typedef struct
 {
@@ -210,8 +212,8 @@ UX_STEP_INIT(ux_sign_flow_2_start_step, NULL, NULL, { h_review_start(); });
 UX_STEP_NOCB_INIT(ux_sign_flow_2_step, bnnn_paging, { h_review_data(); }, { .title = viewdata.key, .text = viewdata.value, });
 UX_STEP_INIT(ux_sign_flow_2_end_step, NULL, NULL, { h_review_end(); });
 
-UX_FLOW_DEF_VALID(ux_sign_flow_3_step, pbb, h_sign_accept(0), { &C_icon_validate_14, "Sign", "Transaction" });
-UX_FLOW_DEF_VALID(ux_sign_flow_4_step, pbb, h_sign_reject(0), { &C_icon_crossmark, "Reject", "Transaction" });
+UX_STEP_VALID(ux_sign_flow_3_step, pbb, h_sign_accept(0), { &C_icon_validate_14, "Sign", "Transaction" });
+UX_STEP_VALID(ux_sign_flow_4_step, pbb, h_sign_reject(0), { &C_icon_crossmark, "Reject", "Transaction" });
 const ux_flow_step_t *const ux_sign_flow[] = {
   &ux_sign_flow_1_step,
   &ux_sign_flow_2_start_step,
