@@ -27,18 +27,13 @@
 #include "libxmss/xmss.h"
 #include "libxmss/nvram.h"
 #include "storage.h"
-
-#include "test_data/test_data.h"
-
-#define CONDITIONAL_REDISPLAY  { if (UX_ALLOWED) UX_REDISPLAY() };
+#include "app_crypto.h"
 
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
-app_ctx_t ctx;
 
-bool parse_unsigned_message(volatile uint32_t *tx, uint32_t rx);
-bool parse_view_address(volatile uint32_t *tx, uint32_t rx);
+void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx);
 
-void hash_tx(uint8_t msg[32]);
+void parse_view_address(volatile uint32_t *tx, uint32_t rx);
 
 unsigned char io_event(unsigned char channel) {
     switch (G_io_seproxyhal_spi_buffer[0]) {
@@ -56,7 +51,7 @@ unsigned char io_event(unsigned char channel) {
             break;
 
         case SEPROXYHAL_TAG_TICKER_EVENT: {
-            UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, CONDITIONAL_REDISPLAY);
+            UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {if (UX_ALLOWED) UX_REDISPLAY()});
         }
             break;
 
@@ -104,43 +99,7 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
 
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
-
-const uint32_t bip32_path[5] = {
-        0x80000000 | 44,
-        0x80000000 | 238,
-        0x80000000 | 0,
-        0x80000000 | 0,
-        0x80000000 | 0
-};
-
-void get_seed(uint8_t *seed) {
-    union {
-        unsigned char all[64];
-        struct {
-            unsigned char seed[32];
-            unsigned char chain[32];
-        };
-    } u;
-
-    memset(seed, 0, 48);
-
-#ifdef TESTING_MOCKSEED
-    // Keep as all zeros for reproducible tests
-#else
-    unsigned char tmp_out[64];
-
-    os_memset(u.all, 0, 64);
-    os_perso_derive_node_bip32(CX_CURVE_SECP256K1, bip32_path, 5, u.seed, u.chain);
-
-    cx_sha3_t hash_sha3;
-    cx_sha3_init(&hash_sha3, 512);
-    cx_hash(&hash_sha3.header, CX_LAST, u.all, 64, tmp_out, 64);
-    memcpy(seed, tmp_out, 48);
-#endif
-}
-
-/// Get the message to sign from the buffer
-bool parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
+void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
     if (N_appdata.mode != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
@@ -168,30 +127,10 @@ bool parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
 
     // move the buffer to the tx ctx
     memcpy((uint8_t * ) & ctx.qrltx, msg, rx);
-
-    return true;
-}
-
-void hash_tx(uint8_t hash[32]) {
-    const int8_t ret = get_qrltx_hash(&ctx.qrltx, hash);
-    if (ret < 0) {
-        THROW(APDU_CODE_DATA_INVALID);
-    }
 }
 
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
-
-void app_init() {
-    io_seproxyhal_init();
-    USB_power(0);
-    USB_power(1);
-
-    view_update_state(100);
-    view_main_menu();
-
-    memset(&ctx, 0, sizeof(app_ctx_t));
-}
 
 #ifdef TESTING_ENABLED
 void test_set_state(volatile uint32_t *tx, uint32_t rx)
@@ -208,9 +147,9 @@ void test_set_state(volatile uint32_t *tx, uint32_t rx)
     UNUSED(p2);
     UNUSED(data);
 
-    nvcpy((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
+    MEMCPY_NV((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
@@ -236,10 +175,10 @@ void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
     xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
     xmss_gen_keys_2_get_nodes((uint8_t*) &N_DATA.wots_buffer, (void*)p, &N_DATA.sk, idx);
 
-    os_memmove(G_io_apdu_buffer, p, 32);
+    MEMMOVE(G_io_apdu_buffer, (const void *)p, 32);
     *tx+=32;
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_keygen(volatile uint32_t* tx, uint32_t rx)
@@ -255,14 +194,14 @@ void test_keygen(volatile uint32_t* tx, uint32_t rx)
     UNUSED(p2);
     UNUSED(data);
 
-    app_initialize_xmss_step();
+    actions_tree_init_step();
 
     G_io_apdu_buffer[0] = N_appdata.mode;
     G_io_apdu_buffer[1] = N_appdata.xmss_index >> 8;
     G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
     *tx += 3;
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
@@ -284,11 +223,10 @@ void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
     const uint8_t index = p1;
     const uint8_t *p=N_DATA.xmss_nodes + 32 * index;
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "W[%03d]: %03d", size, index);
-    debug_printf(view_buffer_value);
+    print_status("W[%03d]: %03d", size, index);
 
-    nvcpy((void*)p, data, size);
-    view_update_state(2000);
+    MEMCPY_NV((void*)p, (void *)data, size);
+    view_update_state();
 }
 
 void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
@@ -298,8 +236,7 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
         THROW(APDU_CODE_WRONG_LENGTH);
     }
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "keygen: root");
-    debug_printf(view_buffer_value);
+    print_status("keygen: root");
 
     xmss_pk_t pk;
     memset(pk.raw, 0, 64);
@@ -314,7 +251,7 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
     tmp.xmss_index = 0;
     nvm_write((void*) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
 
-    view_update_state(50);
+    view_update_state();
 }
 
 void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
@@ -334,13 +271,12 @@ void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
     const uint8_t index = p1;
     const uint8_t *p=N_DATA.xmss_nodes + 32 * index;
 
-    os_memmove(G_io_apdu_buffer, p, 32);
+    MEMMOVE(G_io_apdu_buffer, (void *) p, 32);
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "Read %d", index);
-    debug_printf(view_buffer_value);
+    print_status("Read %d", index);
 
     *tx+=32;
-    view_update_state(2000);
+    view_update_state();
 }
 
 void test_get_seed(volatile uint32_t *tx, uint32_t rx)
@@ -360,22 +296,17 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
     uint8_t seed[48];
     get_seed(seed);
 
-    os_memmove(G_io_apdu_buffer, seed, 48);
+    MEMMOVE(G_io_apdu_buffer, seed, 48);
     *tx+=48;
 
-    snprintf(view_buffer_value,
-            sizeof(view_buffer_value),
-            "GET_SEED");
-    debug_printf(view_buffer_value);
+    print_status("GET_SEED");
 
-    view_update_state(500);
+    view_update_state();
 }
 
 void test_digest(volatile uint32_t *tx, uint32_t rx)
 {
-    if (!parse_unsigned_message(tx, rx)){
-        THROW(APDU_CODE_WRONG_LENGTH);
-    }
+    parse_unsigned_message(tx, rx);
 
     const uint8_t p1 = G_io_apdu_buffer[2];
     const uint8_t p2 = G_io_apdu_buffer[3];
@@ -398,13 +329,12 @@ void test_digest(volatile uint32_t *tx, uint32_t rx)
     const uint8_t index = p1;
     xmss_digest(&digest, msg, &N_DATA.sk, index);
 
-    snprintf(view_buffer_value, sizeof(view_buffer_value), "Digest idx %d", index+1);
-    debug_printf(view_buffer_value);
+    print_status("Digest idx %d", index+1);
 
     os_memmove(G_io_apdu_buffer, digest.raw, 64);
 
     *tx+=64;
-    view_update_state(2000);
+    view_update_state();
 }
 #endif
 
@@ -424,10 +354,9 @@ void app_get_version(volatile uint32_t *tx, uint32_t rx) {
     UNUSED(p2);
     UNUSED(data);
 
+    G_io_apdu_buffer[0] = 0;
 #ifdef TESTING_ENABLED
     G_io_apdu_buffer[0] = 0xFF;
-#else
-    G_io_apdu_buffer[0] = 0;
 #endif
 
     G_io_apdu_buffer[1] = LEDGER_MAJOR_VERSION;
@@ -435,17 +364,7 @@ void app_get_version(volatile uint32_t *tx, uint32_t rx) {
     G_io_apdu_buffer[3] = LEDGER_PATCH_VERSION;
     *tx += 4;
 
-#ifdef TESTING_ENABLED
-    const char *ver_str = "Ver %02d.%02d.%02d TEST";
-    snprintf(view_buffer_value, sizeof(view_buffer_value),
-             ver_str,
-             LEDGER_MAJOR_VERSION,
-             LEDGER_MINOR_VERSION,
-             LEDGER_PATCH_VERSION);
-    debug_printf(view_buffer_value);
-#endif
-
-    view_update_state(2000);
+    view_update_state();
 }
 
 void app_get_state(volatile uint32_t *tx, uint32_t rx) {
@@ -465,67 +384,7 @@ void app_get_state(volatile uint32_t *tx, uint32_t rx) {
     G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
     *tx += 3;
 
-    view_update_state(500);
-}
-
-char app_initialize_xmss_step() {
-    if (N_appdata.mode != APPMODE_NOT_INITIALIZED && N_appdata.mode != APPMODE_KEYGEN_RUNNING) {
-        return false;
-    }
-    appstorage_t tmp;
-
-    // Generate all leaves
-    if (N_appdata.mode == APPMODE_NOT_INITIALIZED) {
-        uint8_t
-        seed[48];
-
-        get_seed(seed);
-
-        xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
-
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = 0;
-
-        nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
-    }
-
-    if (N_appdata.xmss_index < 256) {
-        snprintf(view_buffer_value, sizeof(view_buffer_value), "keygen: %03d/256", N_appdata.xmss_index + 1);
-        debug_printf(view_buffer_value);
-
-#ifdef TESTING_ENABLED
-        for (int idx  = 0; idx < 256; idx +=4){
-            nvm_write( (void *) (N_DATA.xmss_nodes + 32 * idx),
-                       (void *) test_xmss_leaves[idx],
-                       128);
-        }
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = 256;
-#else
-        const uint8_t *p = N_DATA.xmss_nodes + 32 * N_appdata.xmss_index;
-        xmss_gen_keys_2_get_nodes((uint8_t * ) & N_DATA.wots_buffer, (void *) p, &N_DATA.sk, N_appdata.xmss_index);
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = N_appdata.xmss_index + 1;
-#endif
-
-    } else {
-        snprintf(view_buffer_value, sizeof(view_buffer_value), "keygen: root");
-        debug_printf(view_buffer_value);
-
-        xmss_pk_t pk;
-        memset(pk.raw, 0, 64);
-
-        xmss_gen_keys_3_get_root(N_DATA.xmss_nodes, &N_DATA.sk);
-        xmss_pk(&pk, &N_DATA.sk);
-
-        nvm_write(N_appdata.pk.raw, pk.raw, 64);
-
-        tmp.mode = APPMODE_READY;
-        tmp.xmss_index = 0;
-    }
-
-    nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
-    return N_appdata.mode != APPMODE_READY;
+    view_update_state();
 }
 
 void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
@@ -552,7 +411,7 @@ void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
     *tx += 67;
 
     THROW(APDU_CODE_OK);
-    view_update_state(500);
+    view_update_state();
 }
 
 /// This allows extracting the signature by chunks
@@ -573,8 +432,8 @@ void app_sign(volatile uint32_t *tx, uint32_t rx) {
             &ctx.xmss_sig_ctx,
             msg,
             &N_DATA.sk,
-            (uint8_t * )
-    N_DATA.xmss_nodes,
+            (uint8_t *)
+                    N_DATA.xmss_nodes,
             N_appdata.xmss_index);
 
     // Move index forward
@@ -605,15 +464,18 @@ void app_sign_next(volatile uint32_t *tx, uint32_t rx) {
 
     if (ctx.xmss_sig_ctx.sig_chunk_idx == 10) {
         xmss_sign_incremental_last(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_DATA.sk, index);
+        view_update_state();
     } else {
         xmss_sign_incremental(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_DATA.sk, index);
+        print_status("signing %d0%%", ctx.xmss_sig_ctx.sig_chunk_idx);
     }
 
     if (ctx.xmss_sig_ctx.written > 0) {
         *tx = ctx.xmss_sig_ctx.written;
     }
 
-    view_update_state(1000);
+    view_idle_show();
+    UX_WAIT();
 }
 
 void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
@@ -635,7 +497,7 @@ void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
     ctx.new_idx = *data;
 }
 
-bool parse_view_address(volatile uint32_t *tx, uint32_t rx) {
+void parse_view_address(volatile uint32_t *tx, uint32_t rx) {
     if (N_appdata.mode != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
@@ -650,8 +512,6 @@ bool parse_view_address(volatile uint32_t *tx, uint32_t rx) {
     UNUSED(p1);
     UNUSED(p2);
     UNUSED(data);
-
-    return true;
 }
 
 void app_setidx() {
@@ -660,12 +520,28 @@ void app_setidx() {
     }
 
     const uint16_t tmp = ctx.new_idx;
-    nvcpy((void *) &N_appdata.xmss_index, (void *) &tmp, 2);
-    view_update_state(500);
+    MEMCPY_NV((void *) &N_appdata.xmss_index, (void *) &tmp, 2);
+    view_update_state();
 }
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
+
+void app_init() {
+    io_seproxyhal_init();
+    USB_power(0);
+    USB_power(1);
+
+    // Initialize storage
+
+
+    // Clear context
+    //MEMSET(&ctx, 0, sizeof(app_ctx_t));
+
+    // Initialize UI
+    view_update_state();
+    view_idle_show();
+}
 
 void app_main() {
     volatile uint32_t rx = 0, tx = 0, flags = 0;
@@ -725,7 +601,7 @@ void app_main() {
 
                         parse_unsigned_message(&tx, rx);
 
-                        handler_view_tx(0);
+                        view_sign_show();
                         flags |= IO_ASYNCH_REPLY;
                         break;
                     }
@@ -735,9 +611,7 @@ void app_main() {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
-                        debug_printf("SIGNING");
                         app_sign_next(&tx, rx);
-                        view_update_state(1000);
                         THROW(APDU_CODE_OK);
                         break;
                     }
@@ -760,7 +634,8 @@ void app_main() {
 
                         parse_view_address(&tx, rx);
                         view_address_show();
-                        flags |= IO_ASYNCH_REPLY;
+                        UX_WAIT();
+                        THROW(APDU_CODE_OK);
                         break;
                     }
 
