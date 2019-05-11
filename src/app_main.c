@@ -167,13 +167,13 @@ void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
     UNUSED(data);
 
     const uint16_t idx = (p1<<8u)+p2;
-    const uint8_t *p=N_DATA.xmss_nodes + 32 * idx;
+    const uint8_t *p=N_XMSS_DATA.xmss_nodes + 32 * idx;
 
     uint8_t seed[48];
     get_seed(seed);
 
-    xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
-    xmss_gen_keys_2_get_nodes((uint8_t*) &N_DATA.wots_buffer, (void*)p, &N_DATA.sk, idx);
+    xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
+    xmss_gen_keys_2_get_nodes((uint8_t*) &N_XMSS_DATA.wots_buffer, (void*)p, &N_XMSS_DATA.sk, idx);
 
     MEMMOVE(G_io_apdu_buffer, (const void *)p, 32);
     *tx+=32;
@@ -221,7 +221,7 @@ void test_write_leaf(volatile uint32_t *tx, uint32_t rx)
 
     const uint8_t size = rx-4;
     const uint8_t index = p1;
-    const uint8_t *p=N_DATA.xmss_nodes + 32 * index;
+    const uint8_t *p=N_XMSS_DATA.xmss_nodes + 32 * index;
 
     print_status("W[%03d]: %03d", size, index);
 
@@ -241,12 +241,12 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
     xmss_pk_t pk;
     memset(pk.raw, 0, 64);
 
-    xmss_gen_keys_3_get_root(N_DATA.xmss_nodes, &N_DATA.sk);
-    xmss_pk(&pk, &N_DATA.sk);
+    xmss_gen_keys_3_get_root(N_XMSS_DATA.xmss_nodes, &N_XMSS_DATA.sk);
+    xmss_pk(&pk, &N_XMSS_DATA.sk);
 
     nvm_write(N_appdata.pk.raw, pk.raw, 64);
 
-    appstorage_t tmp;
+    app_data_t tmp;
     tmp.mode = APPMODE_READY;
     tmp.xmss_index = 0;
     nvm_write((void*) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
@@ -269,7 +269,7 @@ void test_read_leaf(volatile uint32_t *tx, uint32_t rx)
     UNUSED(data);
 
     const uint8_t index = p1;
-    const uint8_t *p=N_DATA.xmss_nodes + 32 * index;
+    const uint8_t *p=N_XMSS_DATA.xmss_nodes + 32 * index;
 
     MEMMOVE(G_io_apdu_buffer, (void *) p, 32);
 
@@ -321,13 +321,13 @@ void test_digest(volatile uint32_t *tx, uint32_t rx)
     uint8_t seed[48];
     get_seed(seed);
 
-    xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
+    xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
 
     xmss_digest_t digest;
     memset(digest.raw, 0, XMSS_DIGESTSIZE);
 
     const uint8_t index = p1;
-    xmss_digest(&digest, msg, &N_DATA.sk, index);
+    xmss_digest(&digest, msg, &N_XMSS_DATA.sk, index);
 
     print_status("Digest idx %d", index+1);
 
@@ -431,13 +431,12 @@ void app_sign(volatile uint32_t *tx, uint32_t rx) {
     xmss_sign_incremental_init(
             &ctx.xmss_sig_ctx,
             msg,
-            &N_DATA.sk,
-            (uint8_t *)
-                    N_DATA.xmss_nodes,
+            &N_XMSS_DATA.sk,
+            (uint8_t * )N_XMSS_DATA.xmss_nodes,
             N_appdata.xmss_index);
 
     // Move index forward
-    appstorage_t tmp;
+    app_data_t tmp;
     tmp.mode = APPMODE_READY;
     tmp.xmss_index = N_appdata.xmss_index + 1;
     nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
@@ -463,10 +462,10 @@ void app_sign_next(volatile uint32_t *tx, uint32_t rx) {
     const uint16_t index = N_appdata.xmss_index - 1;      // It has already been updated
 
     if (ctx.xmss_sig_ctx.sig_chunk_idx == 10) {
-        xmss_sign_incremental_last(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_DATA.sk, index);
+        xmss_sign_incremental_last(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_XMSS_DATA.sk, index);
         view_update_state();
     } else {
-        xmss_sign_incremental(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_DATA.sk, index);
+        xmss_sign_incremental(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_XMSS_DATA.sk, index);
         print_status("signing %d0%%", ctx.xmss_sig_ctx.sig_chunk_idx);
     }
 
@@ -534,9 +533,8 @@ void app_init() {
 
     // Initialize storage
 
-
     // Clear context
-    //MEMSET(&ctx, 0, sizeof(app_ctx_t));
+    MEMSET(&ctx, 0, sizeof(app_ctx_t));
 
     // Initialize UI
     view_update_state();
@@ -644,8 +642,8 @@ void app_main() {
                         uint8_t seed[48];
                         get_seed(seed);
 
-                        xmss_gen_keys_1_get_seeds(&N_DATA.sk, seed);
-                        os_memmove(G_io_apdu_buffer, N_DATA.sk.raw, 132);
+                        xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
+                        os_memmove(G_io_apdu_buffer, N_XMSS_DATA.sk.raw, 132);
                         tx+=132;
                         THROW(APDU_CODE_OK);
                         break;

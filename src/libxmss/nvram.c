@@ -2,4 +2,4 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #include "nvram.h"
 
-NV_CONST N_DATA_t N_DATA_impl;
+xmss_data_t NV_CONST N_xmss_data_impl NV_ALIGN;

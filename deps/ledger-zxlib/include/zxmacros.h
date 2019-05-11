@@ -32,6 +32,7 @@ extern "C" {
 #define NV_VOL
 #endif
 
+#define NV_ALIGN __attribute__ ((aligned(64)))
 
 #if defined (TARGET_NANOS) || defined(TARGET_NANOX)
 

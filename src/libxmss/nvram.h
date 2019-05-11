@@ -13,15 +13,10 @@ typedef struct {
   xmss_signature_t signature;
   uint8_t wots_buffer[WOTS_LEN * WOTS_N];
   uint8_t xmss_nodes[XMSS_NODES_BUFSIZE];
-} N_DATA_t;
+} xmss_data_t;
 
-extern NV_CONST N_DATA_t N_DATA_impl;
-
-#ifdef LEDGER_SPECIFIC
-#define N_DATA (*(N_DATA_t *)PIC(&N_DATA_impl))
-#else
-#define N_DATA N_DATA_impl
-#endif
+extern NV_CONST xmss_data_t N_xmss_data_impl NV_ALIGN;
+#define N_XMSS_DATA (*(xmss_data_t *)PIC(&N_xmss_data_impl))
 
 #ifdef  __cplusplus
 }
