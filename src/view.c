@@ -378,7 +378,7 @@ void view_init(void) {
 void view_idle_show(void) {
 
 #if defined(TARGET_NANOS)
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         UX_MENU_DISPLAY(0, menu_idle_init, NULL);
     } else {
         UX_MENU_DISPLAY(0, menu_idle, NULL);
@@ -450,7 +450,7 @@ void view_address_show() {
 
     // Copy raw pk into pk
     unsigned char pk[64];
-    MEMCPY(pk, (void *) N_appdata.pk.raw, 64);
+    MEMCPY(pk, (void *) APP_CURTREE.pk.raw, 64);
 
     // Copy desc and pk to form extended_pubkey
     unsigned char extended_pubkey[67];
@@ -505,28 +505,28 @@ void view_update_state() {
     print_key("QRL");
 #endif
 
-    if (N_appdata.mode == APPMODE_NOT_INITIALIZED){
+    if (APP_CURTREE_MODE == APPMODE_NOT_INITIALIZED){
         print_status("not ready");
         return;
     }
 
-    if (N_appdata.mode == APPMODE_KEYGEN_RUNNING) {
-        print_status("KEYGEN rem:%03d", 256 - N_appdata.xmss_index);
+    if (APP_CURTREE_MODE == APPMODE_KEYGEN_RUNNING) {
+        print_status("KEYGEN rem:%03d", 256 - APP_CURTREE_XMSSIDX);
         return;
     }
 
-    if (N_appdata.mode == APPMODE_READY) {
-        if (N_appdata.xmss_index >= 256) {
+    if (APP_CURTREE_MODE == APPMODE_READY) {
+        if (APP_CURTREE_XMSSIDX >= 256) {
             print_status("NO SIGS LEFT");
             return;
         }
 
-        if (N_appdata.xmss_index > 250) {
-            print_status("WARN! rem:%03d", 256 - N_appdata.xmss_index);
+        if (APP_CURTREE_XMSSIDX > 250) {
+            print_status("WARN! rem:%03d", 256 - APP_CURTREE_XMSSIDX);
             return;
         }
 
-        print_status("READY rem:%03d", 256 - N_appdata.xmss_index);
+        print_status("READY rem:%03d", 256 - APP_CURTREE_XMSSIDX);
     }
 }
 

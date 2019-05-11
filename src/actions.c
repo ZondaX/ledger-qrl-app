@@ -28,26 +28,26 @@
 #include "test_data/test_data.h"
 
 char actions_tree_init_step() {
-    if (N_appdata.mode != APPMODE_NOT_INITIALIZED && N_appdata.mode != APPMODE_KEYGEN_RUNNING) {
+    if (APP_CURTREE_MODE != APPMODE_NOT_INITIALIZED && APP_CURTREE_MODE != APPMODE_KEYGEN_RUNNING) {
         return false;
     }
-    app_data_t tmp;
+    xmms_tree_t tmp;
 
     // Generate all leaves
-    if (N_appdata.mode == APPMODE_NOT_INITIALIZED) {
+    if (APP_CURTREE_MODE == APPMODE_NOT_INITIALIZED) {
         uint8_t seed[48];
         get_seed(seed);
 
         xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
 
-        tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = 0;
+        APP_CURTREE_MODE = APPMODE_KEYGEN_RUNNING;
+        APP_CURTREE_XMSSIDX = 0;
 
-        nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
+        nvm_write((void *) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));
     }
 
-    if (N_appdata.xmss_index < 256) {
-        print_status("keygen %03d/256", N_appdata.xmss_index + 1);
+    if (APP_CURTREE_XMSSIDX < 256) {
+        print_status("keygen %03d/256", APP_CURTREE_XMSSIDX + 1);
         view_idle_show();
         UX_WAIT();
 
@@ -60,10 +60,15 @@ char actions_tree_init_step() {
         tmp.mode = APPMODE_KEYGEN_RUNNING;
         tmp.xmss_index = 256;
 #else
-        const uint8_t *p = N_XMSS_DATA.xmss_nodes + 32 * N_appdata.xmss_index;
-        xmss_gen_keys_2_get_nodes((uint8_t * ) & N_XMSS_DATA.wots_buffer, (void *) p, &N_XMSS_DATA.sk, N_appdata.xmss_index);
+        const uint8_t *p = N_XMSS_DATA.xmss_nodes + 32 * APP_CURTREE_XMSSIDX;
+
+        xmss_gen_keys_2_get_nodes((uint8_t * ) & N_XMSS_DATA.wots_buffer,
+                                  (void *) p,
+                                  &N_XMSS_DATA.sk,
+                                  APP_CURTREE_XMSSIDX);
+
         tmp.mode = APPMODE_KEYGEN_RUNNING;
-        tmp.xmss_index = N_appdata.xmss_index + 1;
+        tmp.xmss_index = APP_CURTREE_XMSSIDX + 1;
 #endif
 
     } else {
@@ -77,14 +82,14 @@ char actions_tree_init_step() {
         xmss_gen_keys_3_get_root(N_XMSS_DATA.xmss_nodes, &N_XMSS_DATA.sk);
         xmss_pk(&pk, &N_XMSS_DATA.sk);
 
-        nvm_write(N_appdata.pk.raw, pk.raw, 64);
+        nvm_write(APP_CURTREE.pk.raw, pk.raw, 64);
 
         tmp.mode = APPMODE_READY;
         tmp.xmss_index = 0;
     }
 
-    nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
-    return N_appdata.mode != APPMODE_READY;
+    nvm_write((void *) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));
+    return APP_CURTREE_MODE != APPMODE_READY;
 }
 
 void actions_tree_init() {
