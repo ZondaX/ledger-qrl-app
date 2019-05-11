@@ -1,12 +1,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-#include "xmss_types.h"
-
 #pragma once
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+#include "xmss_types.h"
 
 typedef struct {
   xmss_sk_t sk;

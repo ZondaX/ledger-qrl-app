@@ -2,10 +2,15 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
-#include "zxmacros.h"
 #include <stdbool.h>
+#include "zxmacros.h"
 #include "parameters.h"
+
 #include "shash.h"
 #include "adrs.h"
 
@@ -44,3 +49,7 @@ void wotsp_sign(uint8_t *out_sig,
                 NV_VOL const uint8_t *pub_seed,
                 NV_VOL const uint8_t *sk,
                 uint16_t index);
+
+#ifdef __cplusplus
+}
+#endif

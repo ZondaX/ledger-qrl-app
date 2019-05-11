@@ -2,10 +2,14 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #pragma once
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "zxmacros.h"
-#include "adrs.h"
 #include "parameters.h"
+#include "adrs.h"
 
 #pragma pack(push, 1)
 typedef union {
@@ -161,3 +165,7 @@ __Z_INLINE void shash_h(uint8_t *out, const uint8_t *in, hashh_t *hhash_in) {
 
     shash128_shifted(out, hhash_in);
 }
+
+#ifdef  __cplusplus
+}
+#endif
