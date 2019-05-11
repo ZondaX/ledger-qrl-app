@@ -15,4 +15,4 @@
 ********************************************************************************/
 #include "storage.h"
 
-appstorage_t NV_CONST N_appdata_impl __attribute__ ((aligned(64)));
+app_data_t NV_CONST N_appdata_impl NV_ALIGN;

@@ -234,7 +234,7 @@ const ux_flow_step_t *const ux_sign_flow[] = {
 ux_state_t ux;
 
 const ux_menu_entry_t menu_idle[] = {
-        {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 32, 11},
+        {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 28, 8},
         {NULL, h_show_addr, UIID_TREE_PK, NULL, "Show Addr", NULL, 0, 0},
         {NULL, NULL, 0, NULL, "v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
@@ -242,7 +242,7 @@ const ux_menu_entry_t menu_idle[] = {
 };
 
 const ux_menu_entry_t menu_idle_init[] = {
-        {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 32, 11},
+        {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 28, 8},
         {NULL, h_tree_init, UIID_TREE_INIT, NULL, "Init Tree", NULL, 0, 0},
         {NULL, NULL, 0, NULL, "QRL v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
