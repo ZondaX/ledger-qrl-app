@@ -14,6 +14,14 @@
 *  limitations under the License.
 ********************************************************************************/
 #pragma once
+#include "app_types.h"
+#include <stdint.h>
+
+extern app_ctx_t ctx;
+
+void get_seed(uint8_t *seed);
+
+void hash_tx(uint8_t msg[32]);
 
 void actions_tree_init();
 

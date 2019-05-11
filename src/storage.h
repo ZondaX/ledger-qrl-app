@@ -33,7 +33,7 @@ typedef union {
     uint8_t raw[3];
 } xmms_tree_t;
 
-typedef union {
+typedef struct {
     uint8_t initialized;
     uint8_t tree_idx;
     xmms_tree_t tree[APP_NUM_TREES];
@@ -48,3 +48,9 @@ extern NV_CONST app_data_t N_appdata_impl NV_ALIGN;
 #define APP_CURTREE N_appdata.tree[APP_TREE_IDX]
 #define APP_CURTREE_MODE APP_CURTREE.mode
 #define APP_CURTREE_XMSSIDX  APP_CURTREE.xmss_index
+
+void app_data_init();
+
+void app_set_tree(uint8_t tree_index);
+
+void app_set_mode_index(uint8_t mode, uint16_t xmss_index);

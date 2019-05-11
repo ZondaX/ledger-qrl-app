@@ -41,6 +41,13 @@ void h_tree_init(unsigned int _) {
     view_idle_show();
 }
 
+void h_tree_switch(unsigned int _) {
+    // TODO: Detect plausible deniability
+    app_set_tree((APP_TREE_IDX + 1) % 2);
+    view_update_state();
+    view_idle_show();
+}
+
 void h_setidx_accept() {
     // Accept changing the index
     app_setidx();
@@ -110,6 +117,7 @@ bolos_ux_params_t G_ux_params;
 UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
 UX_STEP_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
 UX_STEP_VALID(ux_idle_flow_2pk_step, pb, h_show_addr(0), { &C_icon_key, "Show Addr",});
+UX_STEP_VALID(ux_idle_flow_3_step, pb, h_tree_switch(0), { &C_icon_refresh, "Switch Tree",});
 UX_STEP_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
 UX_STEP_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
@@ -236,6 +244,7 @@ ux_state_t ux;
 const ux_menu_entry_t menu_idle[] = {
         {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 28, 8},
         {NULL, h_show_addr, UIID_TREE_PK, NULL, "Show Addr", NULL, 0, 0},
+        {NULL, h_tree_switch, UIID_TREE_PK, NULL, "Switch Tree", NULL, 0, 0},
         {NULL, NULL, 0, NULL, "v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
         UX_MENU_END
@@ -244,6 +253,7 @@ const ux_menu_entry_t menu_idle[] = {
 const ux_menu_entry_t menu_idle_init[] = {
         {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 28, 8},
         {NULL, h_tree_init, UIID_TREE_INIT, NULL, "Init Tree", NULL, 0, 0},
+        {NULL, h_tree_switch, UIID_TREE_PK, NULL, "Switch Tree", NULL, 0, 0},
         {NULL, NULL, 0, NULL, "QRL v"APPVERSION, NULL, 0, 0},
         {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
         UX_MENU_END
@@ -500,9 +510,9 @@ void view_address_show() {
 
 void view_update_state() {
 #ifdef TESTING_ENABLED
-    print_key("QRL (TEST)")
+    print_key("QRL (T%d) (TEST)", APP_TREE_IDX + 1)
 #else
-    print_key("QRL");
+    print_key("QRL (Tree%d)", APP_TREE_IDX + 1);
 #endif
 
     if (APP_CURTREE_MODE == APPMODE_NOT_INITIALIZED){

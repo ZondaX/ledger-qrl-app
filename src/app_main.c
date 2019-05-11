@@ -27,7 +27,7 @@
 #include "libxmss/xmss.h"
 #include "libxmss/nvram.h"
 #include "storage.h"
-#include "app_crypto.h"
+#include "actions.h"
 
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
@@ -147,7 +147,7 @@ void test_set_state(volatile uint32_t *tx, uint32_t rx)
     UNUSED(p2);
     UNUSED(data);
 
-    MEMCPY_NV((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
+    MEMCPY_NV((void*)APP_CURTREE.raw, G_io_apdu_buffer+2, 3);
 
     view_update_state();
 }
@@ -196,9 +196,9 @@ void test_keygen(volatile uint32_t* tx, uint32_t rx)
 
     actions_tree_init_step();
 
-    G_io_apdu_buffer[0] = N_appdata.mode;
-    G_io_apdu_buffer[1] = N_appdata.xmss_index >> 8;
-    G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
+    G_io_apdu_buffer[0] = APP_CURTREE_MODE;
+    G_io_apdu_buffer[1] = APP_CURTREE_XMSSIDX >> 8;
+    G_io_apdu_buffer[2] = APP_CURTREE_XMSSIDX & 0xFF;
     *tx += 3;
 
     view_update_state();
@@ -244,12 +244,12 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
     xmss_gen_keys_3_get_root(N_XMSS_DATA.xmss_nodes, &N_XMSS_DATA.sk);
     xmss_pk(&pk, &N_XMSS_DATA.sk);
 
-    nvm_write(N_appdata.pk.raw, pk.raw, 64);
+    nvm_write(APP_CURTREE.pk.raw, pk.raw, 64);
 
-    app_data_t tmp;
+    xmms_tree_t tmp;
     tmp.mode = APPMODE_READY;
     tmp.xmss_index = 0;
-    nvm_write((void*) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
+    nvm_write((void*) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));
 
     view_update_state();
 }
@@ -532,6 +532,7 @@ void app_init() {
     USB_power(1);
 
     // Initialize storage
+    app_data_init();
 
     // Clear context
     MEMSET(&ctx, 0, sizeof(app_ctx_t));
