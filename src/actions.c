@@ -42,7 +42,7 @@ const uint32_t bip32_path_tree2[5] = {
         0x80000000 | 1
 };
 
-void get_seed(uint8_t *seed) {
+void get_seed(uint8_t *seed, uint8_t tree_idx) {
     union {
         unsigned char all[64];
         struct {
@@ -59,10 +59,9 @@ void get_seed(uint8_t *seed) {
 #else
     unsigned char tmp_out[64];
 
-    // TODO: Allow switching to another tree here
     os_memset(u.all, 0, 64);
 
-    if (APP_TREE_IDX == 0) {
+    if (tree_idx == 0) {
         os_perso_derive_node_bip32(CX_CURVE_SECP256K1, bip32_path_tree1, 5, u.seed, u.chain);
     } else {
         os_perso_derive_node_bip32(CX_CURVE_SECP256K1, bip32_path_tree2, 5, u.seed, u.chain);
@@ -89,7 +88,7 @@ char actions_tree_init_step() {
 
     if (APP_CURTREE_MODE == APPMODE_NOT_INITIALIZED) {
         uint8_t seed[48];
-        get_seed(seed);
+        get_seed(seed, N_appdata.tree_idx);
 
         xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
 

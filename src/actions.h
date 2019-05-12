@@ -19,7 +19,7 @@
 
 extern app_ctx_t ctx;
 
-void get_seed(uint8_t *seed);
+void get_seed(uint8_t *seed, uint8_t tree_idx);
 
 void hash_tx(uint8_t msg[32]);
 

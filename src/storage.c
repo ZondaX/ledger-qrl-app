@@ -14,23 +14,60 @@
 *  limitations under the License.
 ********************************************************************************/
 #include "storage.h"
+#include "actions.h"
+#include "libxmss/shash.h"
 
-NV_CONST app_data_t N_appdata_impl NV_ALIGN;
+NV_CONST app_data_t
+N_appdata_impl NV_ALIGN;
+
+uint8_t alternative_seed;
 
 void app_data_init() {
+    uint8_t seed[48];
+    uint8_t seed_hash[32];
+
+    alternative_seed = 0;
     if (N_appdata.initialized){
+        // get seeds and try to match with current ones
+        get_seed(seed, 0);
+        __sha256(seed_hash, seed, 48);
+        if (memcmp(seed_hash, N_appdata.seed_hash_1, 32) != 0 ){
+            // If main seed hash does not match,
+            // try alternative seed?
+            alternative_seed = 1;
+            if (!N_appdata.alternative_seed_known) {
+                // store alternative seed hash
+                MEMCPY_NV(N_appdata.seed_hash_2, seed_hash, 32);
+                SET_NV(&N_appdata.alternative_seed_known, uint8_t, 1);
+            } else {
+                // Check the alternative seed matches
+                if (memcmp(seed_hash, N_appdata.seed_hash_2, 32) != 0 ){
+                    // go into error mode
+                    alternative_seed = 2;
+                }
+            }
+        }
+
+        // show an error in the screen
         return;
     }
-    uint8_t tmp[] = {1, 0};
+
+    // Mark as initialized + tree index = 0 + trees_used
+    // get starting seed, hash and store
+    get_seed(seed, 0);
+    __sha256(seed_hash, seed, 48);
+    MEMCPY_NV(N_appdata.seed_hash_1, seed_hash, 32);
+
+    uint8_t tmp[] = {1, 0, 0};
     MEMCPY_NV(&N_appdata.initialized, tmp, sizeof(tmp));
 }
 
-void app_set_tree(uint8_t tree_index){
-    SET_NV(&APP_TREE_IDX, uint8_t, tree_index);
+void app_set_tree(uint8_t tree_index) {
+    SET_NV(&N_appdata.tree_idx, uint8_t, tree_index);
 }
 
-void app_set_mode_index(uint8_t mode, uint16_t xmss_index){
-    xmms_tree_t tmp;
+void app_set_mode_index(uint8_t mode, uint16_t xmss_index) {
+    xmss_tree_t tmp;
     tmp.mode = mode;
     tmp.xmss_index = xmss_index;
     nvm_write((void *) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));

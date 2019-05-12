@@ -241,6 +241,13 @@ const ux_flow_step_t *const ux_sign_flow[] = {
 
 ux_state_t ux;
 
+const ux_menu_entry_t menu_error[] = {
+        {NULL, NULL, UIID_STATUS, &C_icon_app, "QRL", "seed error", 28, 8},
+        {NULL, NULL, 0, NULL, "v"APPVERSION, NULL, 0, 0},
+        {NULL, os_sched_exit, 0, &C_icon_dashboard, "Quit app", NULL, 50, 29},
+        UX_MENU_END
+};
+
 const ux_menu_entry_t menu_idle[] = {
         {NULL, NULL, UIID_STATUS, &C_icon_app, viewdata.key, viewdata.value, 28, 8},
         {NULL, h_show_addr, UIID_TREE_PK, NULL, "Show Addr", NULL, 0, 0},
@@ -388,6 +395,10 @@ void view_init(void) {
 void view_idle_show(void) {
 
 #if defined(TARGET_NANOS)
+    if (alternative_seed > 1) {
+        UX_MENU_DISPLAY(0, menu_error, NULL);
+        return;
+    }
     if (APP_CURTREE_MODE != APPMODE_READY) {
         UX_MENU_DISPLAY(0, menu_idle_init, NULL);
     } else {
@@ -397,6 +408,7 @@ void view_idle_show(void) {
     if(G_ux.stack_count == 0) {
         ux_stack_push();
     }
+    // TODO: Add error flow when alternative seed > 1
     if (N_appdata.mode != APPMODE_READY) {
         ux_flow_init(0, ux_idle_init_flow, NULL);
     } else {

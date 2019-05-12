@@ -170,7 +170,7 @@ void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
     const uint8_t *p=N_XMSS_DATA.xmss_nodes + 32 * idx;
 
     uint8_t seed[48];
-    get_seed(seed);
+    get_seed(seed, N_appdata.tree_idx);
 
     xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
     xmss_gen_keys_2_get_nodes((uint8_t*) &N_XMSS_DATA.wots_buffer, (void*)p, &N_XMSS_DATA.sk, idx);
@@ -246,7 +246,7 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
 
     nvm_write(APP_CURTREE.pk.raw, pk.raw, 64);
 
-    xmms_tree_t tmp;
+    xmss_tree_t tmp;
     tmp.mode = APPMODE_READY;
     tmp.xmss_index = 0;
     nvm_write((void*) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));
@@ -294,7 +294,7 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
     UNUSED(data);
 
     uint8_t seed[48];
-    get_seed(seed);
+    get_seed(seed, N_appdata.tree_idx);
 
     MEMMOVE(G_io_apdu_buffer, seed, 48);
     *tx+=48;
@@ -319,7 +319,7 @@ void test_digest(volatile uint32_t *tx, uint32_t rx)
     hash_tx(msg);
 
     uint8_t seed[48];
-    get_seed(seed);
+    get_seed(seed, N_appdata.tree_idx);
 
     xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
 
@@ -435,7 +435,7 @@ void app_sign(volatile uint32_t *tx, uint32_t rx) {
             (uint8_t * )N_XMSS_DATA.xmss_nodes, APP_CURTREE_XMSSIDX);
 
     // Move index forward
-    xmms_tree_t tmp;
+    xmss_tree_t tmp;
 
     tmp.mode = APPMODE_READY;
     tmp.xmss_index = APP_CURTREE_XMSSIDX + 1;
@@ -641,7 +641,7 @@ void app_main() {
 #ifdef TESTING_ENABLED
                     case INS_TEST_PK_GEN_1: {
                         uint8_t seed[48];
-                        get_seed(seed);
+                        get_seed(seed, N_appdata.tree_idx);
 
                         xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
                         os_memmove(G_io_apdu_buffer, N_XMSS_DATA.sk.raw, 132);
