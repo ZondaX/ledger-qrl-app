@@ -561,6 +561,10 @@ void app_main() {
                     THROW(0x6982);
                 }
 
+                if (seed_mode == SEED_MODE_ERR) {
+                    THROW(APDU_CODE_BUSY);
+                }
+
                 if (G_io_apdu_buffer[OFFSET_CLA] != CLA) {
                     THROW(APDU_CODE_CLA_NOT_SUPPORTED);
                 }

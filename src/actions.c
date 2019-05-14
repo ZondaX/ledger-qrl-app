@@ -94,6 +94,8 @@ char actions_tree_init_step() {
 
         app_set_mode_index(APPMODE_KEYGEN_RUNNING, 0);
         print_status("keygen start");
+        view_idle_show();
+        UX_WAIT();
     }
 
     if (APP_CURTREE_XMSSIDX < 256) {

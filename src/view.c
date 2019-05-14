@@ -35,6 +35,8 @@ view_t viewdata;
 
 void view_sign_internal_show();
 
+void view_sign_internal_show();
+
 void h_tree_init(unsigned int _) {
     actions_tree_init();
     view_update_state();
@@ -42,7 +44,7 @@ void h_tree_init(unsigned int _) {
 }
 
 void h_tree_switch(unsigned int _) {
-    app_set_tree((APP_TREE_IDX + 1) % 2);
+    app_set_tree((APP_TREE_IDX +1) % 2);
     view_update_state();
     view_idle_show();
 }
@@ -132,6 +134,7 @@ UX_FLOW(
     ux_idle_flow,
     &ux_idle_flow_1_step,
     &ux_idle_flow_2pk_step,
+    &ux_idle_flow_3_step,
     &ux_idle_flow_4_step,
     &ux_idle_flow_5_step
 );
@@ -140,6 +143,7 @@ UX_FLOW(
     ux_idle_init_flow,
     &ux_idle_flow_1_step,
     &ux_idle_flow_2init_step,
+    &ux_idle_flow_3_step,
     &ux_idle_flow_4_step,
     &ux_idle_flow_5_step
 );
@@ -401,7 +405,7 @@ void view_init(void) {
 void view_idle_show(void) {
 
 #if defined(TARGET_NANOS)
-    if (seed_mode > 1) {
+    if (seed_mode >= SEED_MODE_ERR) {
         UX_MENU_DISPLAY(0, menu_error, NULL);
         return;
     }
@@ -414,8 +418,11 @@ void view_idle_show(void) {
     if(G_ux.stack_count == 0) {
         ux_stack_push();
     }
-    // TODO: Add error flow when alternative seed > 1
-    if (N_appdata.mode != APPMODE_READY) {
+    if (seed_mode >= SEED_MODE_ERR) {
+        ux_flow_init(0, ux_error_flow, NULL);
+        return;
+    }
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         ux_flow_init(0, ux_idle_init_flow, NULL);
     } else {
         ux_flow_init(0, ux_idle_flow, NULL);
@@ -530,7 +537,7 @@ void view_update_state() {
 #ifdef TESTING_ENABLED
     print_key("QRL (T%d) (TEST)", APP_TREE_IDX + 1)
 #else
-    print_key("QRL (Tree%d)", APP_TREE_IDX + 1);
+    print_key("QRL (Tree%d)", ((APP_TREE_IDX) % 2) + 1);
 #endif
 
     if (APP_CURTREE_MODE == APPMODE_NOT_INITIALIZED){
