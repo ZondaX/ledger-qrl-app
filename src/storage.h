@@ -22,6 +22,10 @@
 #define APPMODE_KEYGEN_RUNNING     0x01
 #define APPMODE_READY              0x02
 
+#define SEED_MODE_1         0
+#define SEED_MODE_2         1
+#define SEED_MODE_ERR       2
+
 #define APP_NUM_TREES   4
 
 #pragma pack(push, 1)
@@ -37,7 +41,7 @@ typedef union {
 typedef struct {
     uint8_t initialized;
     uint8_t tree_idx;
-    uint8_t alternative_seed_known;
+    uint8_t seed_mode_known;
     xmss_tree_t tree[APP_NUM_TREES];
 
     // Tracking alternatives
@@ -46,12 +50,12 @@ typedef struct {
 } app_data_t;
 #pragma pack(pop)
 
-extern uint8_t alternative_seed;
+extern uint8_t seed_mode;
 
 extern NV_CONST app_data_t N_appdata_impl NV_ALIGN;
 #define N_appdata (*(NV_VOL app_data_t *)PIC(&N_appdata_impl))
 
-#define APP_TREE_IDX (N_appdata.tree_idx + (alternative_seed<<1))
+#define APP_TREE_IDX (N_appdata.tree_idx + (seed_mode<<1))
 
 #define APP_CURTREE N_appdata.tree[APP_TREE_IDX]
 #define APP_CURTREE_MODE APP_CURTREE.mode

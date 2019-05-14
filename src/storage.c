@@ -20,13 +20,13 @@
 NV_CONST app_data_t
 N_appdata_impl NV_ALIGN;
 
-uint8_t alternative_seed;
+uint8_t seed_mode;
 
 void app_data_init() {
     uint8_t seed[48];
     uint8_t seed_hash[32];
 
-    alternative_seed = 0;
+    seed_mode = SEED_MODE_1;
     if (N_appdata.initialized){
         // get seeds and try to match with current ones
         get_seed(seed, 0);
@@ -34,16 +34,16 @@ void app_data_init() {
         if (memcmp(seed_hash, N_appdata.seed_hash_1, 32) != 0 ){
             // If main seed hash does not match,
             // try alternative seed?
-            alternative_seed = 1;
-            if (!N_appdata.alternative_seed_known) {
+            seed_mode = SEED_MODE_2;
+            if (!N_appdata.seed_mode_known) {
                 // store alternative seed hash
                 MEMCPY_NV(N_appdata.seed_hash_2, seed_hash, 32);
-                SET_NV(&N_appdata.alternative_seed_known, uint8_t, 1);
+                SET_NV(&N_appdata.seed_mode_known, uint8_t, 1);
             } else {
                 // Check the alternative seed matches
                 if (memcmp(seed_hash, N_appdata.seed_hash_2, 32) != 0 ){
                     // go into error mode
-                    alternative_seed = 2;
+                    seed_mode = SEED_MODE_ERR;
                 }
             }
         }

@@ -42,7 +42,6 @@ void h_tree_init(unsigned int _) {
 }
 
 void h_tree_switch(unsigned int _) {
-    // TODO: Detect plausible deniability
     app_set_tree((APP_TREE_IDX + 1) % 2);
     view_update_state();
     view_idle_show();
@@ -114,6 +113,7 @@ void h_sign_reject(unsigned int _) {
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 
+UX_STEP_NOCB(ux_idle_flow_0_step, pbb, { &C_icon_app, "QRL", "seed error", });
 UX_STEP_NOCB(ux_idle_flow_1_step, pbb, { &C_icon_app, viewdata.key, viewdata.value, });
 UX_STEP_VALID(ux_idle_flow_2init_step, pb, h_tree_init(0), { &C_icon_key, "Initialize",});
 UX_STEP_VALID(ux_idle_flow_2pk_step, pb, h_show_addr(0), { &C_icon_key, "Show Addr",});
@@ -121,6 +121,12 @@ UX_STEP_VALID(ux_idle_flow_3_step, pb, h_tree_switch(0), { &C_icon_refresh, "Swi
 UX_STEP_NOCB(ux_idle_flow_4_step, bn, { "Version", APPVERSION, });
 UX_STEP_VALID(ux_idle_flow_5_step, pb, os_sched_exit(-1), { &C_icon_dashboard, "Quit",});
 
+UX_FLOW(
+    ux_error_flow,
+    &ux_idle_flow_0_step,
+    &ux_idle_flow_4_step,
+    &ux_idle_flow_5_step
+);
 
 UX_FLOW(
     ux_idle_flow,
@@ -395,7 +401,7 @@ void view_init(void) {
 void view_idle_show(void) {
 
 #if defined(TARGET_NANOS)
-    if (alternative_seed > 1) {
+    if (seed_mode > 1) {
         UX_MENU_DISPLAY(0, menu_error, NULL);
         return;
     }
