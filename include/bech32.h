@@ -14,15 +14,19 @@
 *  limitations under the License.
 ********************************************************************************/
 #pragma once
-#include "app_types.h"
-#include <stdint.h>
 
-extern app_ctx_t ctx;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void get_seed(uint8_t *seed, uint8_t tree_idx);
+// the following function encodes directly from bytes
+// it will internally convert from 8 to 5 bits and return a
+// zero-terminated string in output
+void bech32EncodeFromBytes(char *output,
+                           const char *hrp,
+                           const uint8_t *data,
+                           size_t data_len);
 
-void hash_tx(uint8_t msg[32]);
-
-void actions_tree_init();
-
-char actions_tree_init_step();
+#ifdef __cplusplus
+}
+#endif

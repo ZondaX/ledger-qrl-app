@@ -103,12 +103,16 @@ void xmss_treehash(uint8_t *root_out,
 
 void xmss_randombits(NV_VOL NV_CONST uint8_t *random_bits,
                      NV_VOL const uint8_t sk_seed[48]) {
-#ifdef LEDGER_SPECIFIC
+#if defined(TARGET_NANOX)
     uint8_t buffer[3*WOTS_N];
-        cx_sha3_t hash_sha3;
-        cx_sha3_xof_init(&hash_sha3,256,3*WOTS_N);
-        cx_hash(&hash_sha3.header, CX_LAST, (void *) sk_seed, 48, buffer, 3*WOTS_N);
-        MEMCPY_NV((void*)random_bits, buffer, 3*WOTS_N);
+    shake256(buffer, 3 * WOTS_N, (const uint8_t *)sk_seed, 48);
+    MEMCPY_NV((void*)random_bits, buffer, 3*WOTS_N);
+#elif defined(TARGET_NANOS)
+    uint8_t buffer[3*WOTS_N];
+    cx_sha3_t hash_sha3;
+    cx_sha3_xof_init(&hash_sha3,256,3*WOTS_N);
+    cx_hash(&hash_sha3.header, CX_LAST, (void *) sk_seed, 48, buffer, 3*WOTS_N);
+    MEMCPY_NV((void*)random_bits, buffer, 3*WOTS_N);
 #else
     shake256(random_bits, 3 * WOTS_N, sk_seed, 48);
 #endif

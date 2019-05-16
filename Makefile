@@ -24,7 +24,7 @@ include $(BOLOS_SDK)/Makefile.defines
 # Main app configuration
 APPNAME = "QRL"
 APPVERSION_M=1
-APPVERSION_N=0
+APPVERSION_N=1
 APPVERSION_P=0
 
 ifeq ($(TARGET_NAME),TARGET_NANOS)

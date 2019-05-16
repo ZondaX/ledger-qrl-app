@@ -2,13 +2,10 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #pragma once
 
-#include <stdint.h>
-#include "zxmacros.h"
-#include "parameters.h"
-#include "shash.h"
-#include "adrs.h"
-#include "fips202.h"
-#include "wotsp.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "xmss_types.h"
 
 __Z_INLINE void xmss_pk(xmss_pk_t *pk_out,
@@ -75,3 +72,7 @@ bool xmss_sign_incremental_last(xmss_sig_ctx_t *ctx,
                                 uint8_t *out,
                                 NV_VOL const xmss_sk_t *sk,
                                 uint16_t index);
+
+#ifdef __cplusplus
+}
+#endif

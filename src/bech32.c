@@ -13,16 +13,25 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 ********************************************************************************/
-#pragma once
-#include "app_types.h"
+
 #include <stdint.h>
+#include <stddef.h>
+#include "bech32.h"
+#include "segwit_addr.h"
+#include "bittools.h"
 
-extern app_ctx_t ctx;
+void bech32EncodeFromBytes(char *output,
+                           const char *hrp,
+                           const uint8_t *data,
+                           size_t data_len) {
+    output[0] = 0;
+    if (data_len > 128) {
+        return;
+    }
 
-void get_seed(uint8_t *seed, uint8_t tree_idx);
+    uint8_t tmp_data[128];
+    size_t tmp_size = 0;
 
-void hash_tx(uint8_t msg[32]);
-
-void actions_tree_init();
-
-char actions_tree_init_step();
+    convert_bits(tmp_data, &tmp_size, 5, data, data_len, 8, 0);
+    bech32_encode(output, hrp, tmp_data, tmp_size);
+}

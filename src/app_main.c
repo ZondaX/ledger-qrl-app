@@ -27,7 +27,7 @@
 #include "libxmss/xmss.h"
 #include "libxmss/nvram.h"
 #include "storage.h"
-#include "app_crypto.h"
+#include "actions.h"
 
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
@@ -100,7 +100,7 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 void parse_unsigned_message(volatile uint32_t *tx, uint32_t rx) {
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
 
@@ -147,7 +147,7 @@ void test_set_state(volatile uint32_t *tx, uint32_t rx)
     UNUSED(p2);
     UNUSED(data);
 
-    MEMCPY_NV((void*)N_appdata.raw, G_io_apdu_buffer+2, 3);
+    MEMCPY_NV((void*)APP_CURTREE.raw, G_io_apdu_buffer+2, 3);
 
     view_update_state();
 }
@@ -170,7 +170,7 @@ void test_pk_gen2(volatile uint32_t *tx, uint32_t rx)
     const uint8_t *p=N_XMSS_DATA.xmss_nodes + 32 * idx;
 
     uint8_t seed[48];
-    get_seed(seed);
+    get_seed(seed, N_appdata.tree_idx);
 
     xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
     xmss_gen_keys_2_get_nodes((uint8_t*) &N_XMSS_DATA.wots_buffer, (void*)p, &N_XMSS_DATA.sk, idx);
@@ -196,9 +196,9 @@ void test_keygen(volatile uint32_t* tx, uint32_t rx)
 
     actions_tree_init_step();
 
-    G_io_apdu_buffer[0] = N_appdata.mode;
-    G_io_apdu_buffer[1] = N_appdata.xmss_index >> 8;
-    G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
+    G_io_apdu_buffer[0] = APP_CURTREE_MODE;
+    G_io_apdu_buffer[1] = APP_CURTREE_XMSSIDX >> 8;
+    G_io_apdu_buffer[2] = APP_CURTREE_XMSSIDX & 0xFF;
     *tx += 3;
 
     view_update_state();
@@ -244,12 +244,12 @@ void test_calc_pk(volatile uint32_t *tx, uint32_t rx)
     xmss_gen_keys_3_get_root(N_XMSS_DATA.xmss_nodes, &N_XMSS_DATA.sk);
     xmss_pk(&pk, &N_XMSS_DATA.sk);
 
-    nvm_write(N_appdata.pk.raw, pk.raw, 64);
+    nvm_write(APP_CURTREE.pk.raw, pk.raw, 64);
 
-    app_data_t tmp;
+    xmss_tree_t tmp;
     tmp.mode = APPMODE_READY;
     tmp.xmss_index = 0;
-    nvm_write((void*) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
+    nvm_write((void*) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));
 
     view_update_state();
 }
@@ -294,7 +294,7 @@ void test_get_seed(volatile uint32_t *tx, uint32_t rx)
     UNUSED(data);
 
     uint8_t seed[48];
-    get_seed(seed);
+    get_seed(seed, N_appdata.tree_idx);
 
     MEMMOVE(G_io_apdu_buffer, seed, 48);
     *tx+=48;
@@ -319,7 +319,7 @@ void test_digest(volatile uint32_t *tx, uint32_t rx)
     hash_tx(msg);
 
     uint8_t seed[48];
-    get_seed(seed);
+    get_seed(seed, N_appdata.tree_idx);
 
     xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
 
@@ -379,16 +379,16 @@ void app_get_state(volatile uint32_t *tx, uint32_t rx) {
     UNUSED(p2);
     UNUSED(data);
 
-    G_io_apdu_buffer[0] = N_appdata.mode;
-    G_io_apdu_buffer[1] = N_appdata.xmss_index >> 8;
-    G_io_apdu_buffer[2] = N_appdata.xmss_index & 0xFF;
+    G_io_apdu_buffer[0] = APP_CURTREE_MODE;
+    G_io_apdu_buffer[1] = APP_CURTREE_XMSSIDX >> 8;
+    G_io_apdu_buffer[2] = APP_CURTREE_XMSSIDX & 0xFF;
     *tx += 3;
 
     view_update_state();
 }
 
 void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
     if (rx < 5) {
@@ -407,7 +407,7 @@ void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
     G_io_apdu_buffer[1] = 4;        // Height 8
     G_io_apdu_buffer[2] = 0;        // SHA256_X
 
-    os_memmove(G_io_apdu_buffer + 3, N_appdata.pk.raw, 64);
+    os_memmove(G_io_apdu_buffer + 3, APP_CURTREE.pk.raw, 64);
     *tx += 67;
 
     THROW(APDU_CODE_OK);
@@ -416,11 +416,11 @@ void app_get_pk(volatile uint32_t *tx, uint32_t rx) {
 
 /// This allows extracting the signature by chunks
 void app_sign(volatile uint32_t *tx, uint32_t rx) {
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
 
-    if (N_appdata.xmss_index >= 256) {
+    if (APP_CURTREE_XMSSIDX >= 256) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
 
@@ -432,19 +432,19 @@ void app_sign(volatile uint32_t *tx, uint32_t rx) {
             &ctx.xmss_sig_ctx,
             msg,
             &N_XMSS_DATA.sk,
-            (uint8_t * )N_XMSS_DATA.xmss_nodes,
-            N_appdata.xmss_index);
+            (uint8_t * )N_XMSS_DATA.xmss_nodes, APP_CURTREE_XMSSIDX);
 
     // Move index forward
-    app_data_t tmp;
+    xmss_tree_t tmp;
+
     tmp.mode = APPMODE_READY;
-    tmp.xmss_index = N_appdata.xmss_index + 1;
-    nvm_write((void *) &N_appdata.raw, &tmp.raw, sizeof(tmp.raw));
+    tmp.xmss_index = APP_CURTREE_XMSSIDX + 1;
+    nvm_write((void *) &APP_CURTREE.raw, &tmp.raw, sizeof(tmp.raw));
 }
 
 /// This allows extracting the signature by chunks
 void app_sign_next(volatile uint32_t *tx, uint32_t rx) {
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
     if (ctx.xmss_sig_ctx.sig_chunk_idx > 10) {
@@ -459,7 +459,7 @@ void app_sign_next(volatile uint32_t *tx, uint32_t rx) {
     UNUSED(p2);
     UNUSED(data);
 
-    const uint16_t index = N_appdata.xmss_index - 1;      // It has already been updated
+    const uint16_t index = APP_CURTREE_XMSSIDX - 1;      // It has already been updated
 
     if (ctx.xmss_sig_ctx.sig_chunk_idx == 10) {
         xmss_sign_incremental_last(&ctx.xmss_sig_ctx, G_io_apdu_buffer, &N_XMSS_DATA.sk, index);
@@ -481,7 +481,7 @@ void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
     if (rx != 6) {
         THROW(APDU_CODE_WRONG_LENGTH);
     }
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
 
@@ -497,7 +497,7 @@ void parse_setidx(volatile uint32_t *tx, uint32_t rx) {
 }
 
 void parse_view_address(volatile uint32_t *tx, uint32_t rx) {
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
     if (rx < 5) {
@@ -514,12 +514,12 @@ void parse_view_address(volatile uint32_t *tx, uint32_t rx) {
 }
 
 void app_setidx() {
-    if (N_appdata.mode != APPMODE_READY) {
+    if (APP_CURTREE_MODE != APPMODE_READY) {
         THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
     }
 
     const uint16_t tmp = ctx.new_idx;
-    MEMCPY_NV((void *) &N_appdata.xmss_index, (void *) &tmp, 2);
+    MEMCPY_NV((void *) &APP_CURTREE_XMSSIDX, (void *) &tmp, 2);
     view_update_state();
 }
 
@@ -532,6 +532,7 @@ void app_init() {
     USB_power(1);
 
     // Initialize storage
+    app_data_init();
 
     // Clear context
     MEMSET(&ctx, 0, sizeof(app_ctx_t));
@@ -560,6 +561,10 @@ void app_main() {
                     THROW(0x6982);
                 }
 
+                if (seed_mode == SEED_MODE_ERR) {
+                    THROW(APDU_CODE_BUSY);
+                }
+
                 if (G_io_apdu_buffer[OFFSET_CLA] != CLA) {
                     THROW(APDU_CODE_CLA_NOT_SUPPORTED);
                 }
@@ -579,7 +584,7 @@ void app_main() {
                     }
 
                     case INS_PUBLIC_KEY: {
-                        if (N_appdata.mode != APPMODE_READY) {
+                        if (APP_CURTREE_MODE != APPMODE_READY) {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
@@ -589,11 +594,11 @@ void app_main() {
                     }
 
                     case INS_SIGN: {
-                        if (N_appdata.mode != APPMODE_READY) {
+                        if (APP_CURTREE_MODE != APPMODE_READY) {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
-                        if (N_appdata.xmss_index >= 256) {
+                        if (APP_CURTREE_XMSSIDX >= 256) {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
@@ -605,7 +610,7 @@ void app_main() {
                     }
 
                     case INS_SIGN_NEXT: {
-                        if (N_appdata.mode != APPMODE_READY) {
+                        if (APP_CURTREE_MODE != APPMODE_READY) {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
@@ -615,7 +620,7 @@ void app_main() {
                     }
 
                     case INS_SETIDX: {
-                        if (N_appdata.mode != APPMODE_READY) {
+                        if (APP_CURTREE_MODE != APPMODE_READY) {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
@@ -626,7 +631,7 @@ void app_main() {
                     }
 
                     case INS_VIEW_ADDRESS: {
-                        if (N_appdata.mode != APPMODE_READY) {
+                        if (APP_CURTREE_MODE != APPMODE_READY) {
                             THROW(APDU_CODE_COMMAND_NOT_ALLOWED);
                         }
 
@@ -640,7 +645,7 @@ void app_main() {
 #ifdef TESTING_ENABLED
                     case INS_TEST_PK_GEN_1: {
                         uint8_t seed[48];
-                        get_seed(seed);
+                        get_seed(seed, N_appdata.tree_idx);
 
                         xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
                         os_memmove(G_io_apdu_buffer, N_XMSS_DATA.sk.raw, 132);

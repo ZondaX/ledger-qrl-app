@@ -13,12 +13,24 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 ********************************************************************************/
-#pragma once
-#include "app_types.h"
-#include <stdint.h>
+#include <gmock/gmock.h>
+#include <zxmacros.h>
+#include <bech32.h>
 
-extern app_ctx_t ctx;
+namespace {
+    TEST(BECH32, hex_to_address) {
+        char addr_out[100];
+        const char *hrp = "zx";
 
-void get_seed(uint8_t *seed);
+        uint8_t data1[] = {1, 3, 5};
+        uint8_t data2[] = {1, 3, 5, 7, 9, 11, 13};
 
-void hash_tx(uint8_t msg[32]);
+        bech32EncodeFromBytes(addr_out, hrp, data1, sizeof(data1));
+        std::cout << addr_out << std::endl;
+        ASSERT_STREQ("zx1qypse825ac", addr_out);
+
+        bech32EncodeFromBytes(addr_out, hrp, data2, sizeof(data2));
+        std::cout << addr_out << std::endl;
+        ASSERT_STREQ("zx1qyps2pcfpvx20dk22", addr_out);
+    }
+}
