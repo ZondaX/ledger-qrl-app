@@ -43,6 +43,18 @@ const uint32_t bip32_path_tree2[5] = {
 };
 
 void get_seed(uint8_t *seed, uint8_t tree_idx) {
+    MEMSET(seed, 0, 48);
+
+#ifdef TESTING_MOCKSEED
+    // TREE 0: Keep as all zeros for reproducible tests
+    if (tree_idx == 0){
+        MEMSET(seed, 0, 48);
+    }
+    // TREE 1: Keep as all 0xFF for reproducible tests
+    if (tree_idx == 1){
+        MEMSET(seed, 0xFF, 48);
+    }
+#else
     union {
         unsigned char all[64];
         struct {
@@ -50,15 +62,6 @@ void get_seed(uint8_t *seed, uint8_t tree_idx) {
             unsigned char chain[32];
         };
     } u;
-
-    MEMSET(seed, 0, 48);
-
-#ifdef TESTING_MOCKSEED
-    UNUSED(u);
-    // Keep as all zeros for reproducible tests
-#else
-    unsigned char tmp_out[64];
-
     os_memset(u.all, 0, 64);
 
     if (tree_idx == 0) {
@@ -67,6 +70,7 @@ void get_seed(uint8_t *seed, uint8_t tree_idx) {
         os_perso_derive_node_bip32(CX_CURVE_SECP256K1, bip32_path_tree2, 5, u.seed, u.chain);
     }
 
+    unsigned char tmp_out[64];
     cx_sha3_t hash_sha3;
     cx_sha3_init(&hash_sha3, 512);
     cx_hash(&hash_sha3.header, CX_LAST, u.all, 64, tmp_out, 64);
@@ -100,11 +104,20 @@ char actions_tree_init_step() {
 
     if (APP_CURTREE_XMSSIDX < 256) {
 #ifdef TESTING_ENABLED
-        for (int idx  = 0; idx < 256; idx +=4){
-            nvm_write( (void *) (XMSS_CUR_NODES + 32 * idx),
-                       (void *) test_xmss_leaves[idx],
-                       128);
+        if (N_appdata.tree_idx == 0) {
+            for (int idx  = 0; idx < 256; idx +=4){
+                nvm_write( (void *) (XMSS_CUR_NODES + 32 * idx),
+                           (void *) test_xmss_leaves[idx],
+                           128);
+            }
+        } else {
+            for (int idx  = 0; idx < 256; idx +=4){
+                nvm_write( (void *) (XMSS_CUR_NODES + 32 * idx),
+                           (void *) test_xmss_leaves2[idx],
+                           128);
+            }
         }
+
         app_set_mode_index(APPMODE_KEYGEN_RUNNING, 256);
         print_status("TEST TREE");
 #else

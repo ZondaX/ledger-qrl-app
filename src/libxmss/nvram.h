@@ -23,7 +23,7 @@ typedef struct {
 } xmss_data_t;
 
 extern NV_CONST xmss_data_t N_xmss_data_impl NV_ALIGN;
-#define N_XMSS_DATA (*(xmss_data_t *)PIC(&N_xmss_data_impl))
+#define N_XMSS_DATA (*(NV_VOL xmss_data_t *)PIC(&N_xmss_data_impl))
 
 #ifdef  __cplusplus
 }
