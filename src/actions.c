@@ -27,19 +27,19 @@
 app_ctx_t ctx;
 
 const uint32_t bip32_path_tree1[5] = {
-        0x80000000 | 44,
-        0x80000000 | 238,
-        0x80000000 | 0,
-        0x80000000 | 0,
-        0x80000000 | 0
+    0x80000000 | 44,
+    0x80000000 | 238,
+    0x80000000 | 0,
+    0x80000000 | 0,
+    0x80000000 | 0
 };
 
 const uint32_t bip32_path_tree2[5] = {
-        0x80000000 | 44,
-        0x80000000 | 238,
-        0x80000000 | 0,
-        0x80000000 | 0,
-        0x80000000 | 1
+    0x80000000 | 44,
+    0x80000000 | 238,
+    0x80000000 | 0,
+    0x80000000 | 0,
+    0x80000000 | 1
 };
 
 void get_seed(uint8_t *seed, uint8_t tree_idx) {
@@ -90,7 +90,7 @@ char actions_tree_init_step() {
         uint8_t seed[48];
         get_seed(seed, N_appdata.tree_idx);
 
-        xmss_gen_keys_1_get_seeds(&N_XMSS_DATA.sk, seed);
+        xmss_gen_keys_1_get_seeds(&XMSS_CUR_SK, seed);
 
         app_set_mode_index(APPMODE_KEYGEN_RUNNING, 0);
         print_status("keygen start");
@@ -101,19 +101,19 @@ char actions_tree_init_step() {
     if (APP_CURTREE_XMSSIDX < 256) {
 #ifdef TESTING_ENABLED
         for (int idx  = 0; idx < 256; idx +=4){
-            nvm_write( (void *) (N_XMSS_DATA.xmss_nodes + 32 * idx),
+            nvm_write( (void *) (XMSS_CUR_NODES + 32 * idx),
                        (void *) test_xmss_leaves[idx],
                        128);
         }
         app_set_mode_index(APPMODE_KEYGEN_RUNNING, 256);
         print_status("TEST TREE");
 #else
-        const uint8_t *p = N_XMSS_DATA.xmss_nodes + 32 * APP_CURTREE_XMSSIDX;
+        const uint8_t *p = XMSS_CUR_NODES +32 * APP_CURTREE_XMSSIDX;
 
-        xmss_gen_keys_2_get_nodes((uint8_t * ) & N_XMSS_DATA.wots_buffer,
-                                  (void *) p,
-                                  &N_XMSS_DATA.sk,
-        APP_CURTREE_XMSSIDX);
+        xmss_gen_keys_2_get_nodes(
+            (uint8_t * ) & N_XMSS_DATA.wots_buffer,
+            (void *) p,
+            &XMSS_CUR_SK, APP_CURTREE_XMSSIDX);
 
         app_set_mode_index(APPMODE_KEYGEN_RUNNING, APP_CURTREE_XMSSIDX + 1);
         print_status("keygen %03d/256", APP_CURTREE_XMSSIDX);
@@ -121,8 +121,8 @@ char actions_tree_init_step() {
     } else {
         xmss_pk_t pk;
         memset(pk.raw, 0, 64);
-        xmss_gen_keys_3_get_root(N_XMSS_DATA.xmss_nodes, &N_XMSS_DATA.sk);
-        xmss_pk(&pk, &N_XMSS_DATA.sk);
+        xmss_gen_keys_3_get_root(XMSS_CUR_NODES, &XMSS_CUR_SK);
+        xmss_pk(&pk, &XMSS_CUR_SK);
         nvm_write(APP_CURTREE.pk.raw, pk.raw, 64);
 
         app_set_mode_index(APPMODE_READY, 0);
