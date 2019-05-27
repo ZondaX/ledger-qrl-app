@@ -17,7 +17,7 @@
 #include "actions.h"
 #include "libxmss/shash.h"
 
-NV_CONST app_data_t
+app_data_t NV_CONST
 N_appdata_impl NV_ALIGN;
 
 uint8_t seed_mode;

@@ -61,6 +61,9 @@ extern NV_CONST app_data_t N_appdata_impl NV_ALIGN;
 #define APP_CURTREE_MODE APP_CURTREE.mode
 #define APP_CURTREE_XMSSIDX  APP_CURTREE.xmss_index
 
+#define XMSS_CUR_NODES (N_XMSS_DATA.trees[APP_TREE_IDX].xmss_nodes)
+#define XMSS_CUR_SK (N_XMSS_DATA.trees[APP_TREE_IDX].sk)
+
 void app_data_init();
 
 void app_set_tree(uint8_t tree_index);
